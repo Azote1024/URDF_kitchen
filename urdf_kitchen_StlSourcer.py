@@ -29,6 +29,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QTimer, Qt
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
+from urdf_kitchen_config import StlSourcerConfig as Config
+
 class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, parent=None):
         super(CustomInteractorStyle, self).__init__()
@@ -120,15 +122,15 @@ class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("URDF kitchen - StlSourcer v0.0.1 -")
-        self.setGeometry(100, 100, 700, 700)
+        self.setWindowTitle(Config.WINDOW_TITLE)
+        self.setGeometry(*Config.WINDOW_GEOMETRY)
         self.camera_rotation = [0, 0, 0]  # [yaw, pitch, roll]
         self.absolute_origin = [0, 0, 0]  # 大原点の設定
-        self.initial_camera_position = [10, 0, 0]  # 初期カメラ位置
-        self.initial_camera_focal_point = [0, 0, 0]  # 初期焦点
-        self.initial_camera_view_up = [0, 0, 1]  # 初期の上方向
+        self.initial_camera_position = Config.INITIAL_CAMERA_POSITION  # 初期カメラ位置
+        self.initial_camera_focal_point = Config.INITIAL_CAMERA_FOCAL_POINT  # 初期焦点
+        self.initial_camera_view_up = Config.INITIAL_CAMERA_VIEW_UP  # 初期の上方向
 
-        self.num_points = 1  # ポイントの数を1に設定
+        self.num_points = Config.NUM_POINTS  # ポイントの数を1に設定
         self.point_coords = [list(self.absolute_origin) for _ in range(self.num_points)]
         self.point_actors = [None] * self.num_points
         self.point_checkboxes = []
@@ -203,54 +205,54 @@ class MainWindow(QMainWindow):
         self.vtk_widget.GetRenderWindow().AddObserver("ModifiedEvent", self.update_all_points_size)
 
     def set_ui_style(self):
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #2b2b2b;
-            }
-            QLabel {
-                color: #ffffff;
-            }
-            QPushButton {
+        self.setStyleSheet(f"""
+            QMainWindow {{
+                background-color: {Config.STYLE_MAIN_BG};
+            }}
+            QLabel {{
+                color: {Config.STYLE_LABEL_COLOR};
+            }}
+            QPushButton {{
                 background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                                stop:0 #5a5a5a, stop:1 #3a3a3a);
-                color: #ffffff;
-                border: 1px solid #707070;
+                                                stop:0 {Config.STYLE_BUTTON_GRADIENT_START}, stop:1 {Config.STYLE_BUTTON_GRADIENT_END});
+                color: {Config.STYLE_BUTTON_TEXT};
+                border: 1px solid {Config.STYLE_BUTTON_BORDER};
                 border-radius: 5px;
                 padding: 3px 8px;
                 min-height: 20px;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                                 stop:0 #6a6a6a, stop:1 #4a4a4a);
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                                stop:0 #3a3a3a, stop:1 #5a5a5a);
+                                                stop:0 {Config.STYLE_BUTTON_GRADIENT_END}, stop:1 {Config.STYLE_BUTTON_GRADIENT_START});
                 padding-top: 6px;
                 padding-bottom: 4px;
-            }
-            QLineEdit {
-                background-color: #3a3a3a;
-                color: #ffffff;
-                border: 1px solid #5a5a5a;
+            }}
+            QLineEdit {{
+                background-color: {Config.STYLE_INPUT_BG};
+                color: {Config.STYLE_INPUT_TEXT};
+                border: 1px solid {Config.STYLE_INPUT_BORDER};
                 border-radius: 3px;
                 padding: 2px;
-            }
-            QCheckBox {
-                color: #ffffff;
-            }
-            QCheckBox::indicator {
+            }}
+            QCheckBox {{
+                color: {Config.STYLE_CHECKBOX_TEXT};
+            }}
+            QCheckBox::indicator {{
                 width: 13px;
                 height: 13px;
-            }
-            QCheckBox::indicator:unchecked {
-                border: 1px solid #5a5a5a;
-                background-color: #2b2b2b;
-            }
-            QCheckBox::indicator:checked {
-                border: 1px solid #5a5a5a;
-                background-color: #4a90e2;
-            }
+            }}
+            QCheckBox::indicator:unchecked {{
+                border: 1px solid {Config.STYLE_INPUT_BORDER};
+                background-color: {Config.STYLE_MAIN_BG};
+            }}
+            QCheckBox::indicator:checked {{
+                border: 1px solid {Config.STYLE_INPUT_BORDER};
+                background-color: {Config.STYLE_CHECKBOX_CHECKED};
+            }}
         """)
 
     def setup_points_ui(self, layout):
