@@ -31,20 +31,22 @@ import base64
 import shutil
 import datetime
 
+from urdf_kitchen_config import AssemblerConfig as Config
+
 def apply_dark_theme(app):
     dark_palette = QPalette()
-    dark_palette.setColor(QPalette.Window, QColor(53, 53, 53))
-    dark_palette.setColor(QPalette.WindowText, QColor(255, 255, 255))
-    dark_palette.setColor(QPalette.Base, QColor(42, 42, 42))
-    dark_palette.setColor(QPalette.AlternateBase, QColor(66, 66, 66))
-    dark_palette.setColor(QPalette.ToolTipBase, QColor(255, 255, 255))
-    dark_palette.setColor(QPalette.ToolTipText, QColor(255, 255, 255))
-    dark_palette.setColor(QPalette.Text, QColor(255, 255, 255))
-    dark_palette.setColor(QPalette.Button, QColor(53, 53, 53))
-    dark_palette.setColor(QPalette.ButtonText, QColor(255, 255, 255))
-    dark_palette.setColor(QPalette.BrightText, QColor(255, 0, 0))
-    dark_palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
-    dark_palette.setColor(QPalette.HighlightedText, QColor(0, 0, 0))
+    dark_palette.setColor(QPalette.Window, QColor(*Config.PALETTE_WINDOW))
+    dark_palette.setColor(QPalette.WindowText, QColor(*Config.PALETTE_WINDOW_TEXT))
+    dark_palette.setColor(QPalette.Base, QColor(*Config.PALETTE_BASE))
+    dark_palette.setColor(QPalette.AlternateBase, QColor(*Config.PALETTE_ALTERNATE_BASE))
+    dark_palette.setColor(QPalette.ToolTipBase, QColor(*Config.PALETTE_TOOLTIP_BASE))
+    dark_palette.setColor(QPalette.ToolTipText, QColor(*Config.PALETTE_TOOLTIP_TEXT))
+    dark_palette.setColor(QPalette.Text, QColor(*Config.PALETTE_TEXT))
+    dark_palette.setColor(QPalette.Button, QColor(*Config.PALETTE_BUTTON))
+    dark_palette.setColor(QPalette.ButtonText, QColor(*Config.PALETTE_BUTTON_TEXT))
+    dark_palette.setColor(QPalette.BrightText, QColor(*Config.PALETTE_BRIGHT_TEXT))
+    dark_palette.setColor(QPalette.Highlight, QColor(*Config.PALETTE_HIGHLIGHT))
+    dark_palette.setColor(QPalette.HighlightedText, QColor(*Config.PALETTE_HIGHLIGHTED_TEXT))
     app.setPalette(dark_palette)
 
 class BaseLinkNode(BaseNode):
@@ -76,7 +78,7 @@ class BaseLinkNode(BaseNode):
         self.stl_file = None
 
         # 色情報を追加
-        self.node_color = [1.0, 1.0, 1.0]  # RGBの初期値（白）
+        self.node_color = Config.DEFAULT_NODE_COLOR  # RGBの初期値（白）
 
         # 回転軸の初期値を追加
         self.rotation_axis = 0  # 0: X, 1: Y, 2: Z
@@ -125,7 +127,7 @@ class FooNode(BaseNode):
         self.stl_file = None
         
         # 色情報を追加
-        self.node_color = [1.0, 1.0, 1.0]  # RGBの初期値（白）
+        self.node_color = Config.DEFAULT_NODE_COLOR  # RGBの初期値（白）
         
         # 回転軸の初期値を追加
         self.rotation_axis = 0  # 0: X, 1: Y, 2: Z
@@ -138,7 +140,7 @@ class FooNode(BaseNode):
         self.view.mouseDoubleClickEvent = self.node_double_clicked
 
     def _add_output(self, name=''):
-        if self.output_count < 8:  # 最大8ポートまで
+        if self.output_count < Config.MAX_OUTPUT_PORTS:  # 最大8ポートまで
             self.output_count += 1
             port_name = f'out_{self.output_count}'
             super(FooNode, self).add_output(port_name)
@@ -586,7 +588,7 @@ class InspectorWindow(QtWidgets.QWidget):
                 self.apply_color_to_stl()
             else:
                 # デフォルトの色を設定（白）
-                node.node_color = [1.0, 1.0, 1.0]
+                node.node_color = Config.DEFAULT_NODE_COLOR
                 for color_input in self.color_inputs:
                     color_input.setText("1.000")
                 self.color_sample.setStyleSheet(

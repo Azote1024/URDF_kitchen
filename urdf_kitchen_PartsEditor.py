@@ -40,6 +40,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QTextOption, QColor, QPalette
 
+from urdf_kitchen_config import PartsEditorConfig as Config
+
 # pip install numpy
 # pip install PySide6
 # pip install vtk
@@ -50,126 +52,126 @@ def apply_dark_theme(self):
     # パレットの設定
     palette = self.palette()
     # メインウィンドウ背景：柔らかいダークグレー
-    palette.setColor(QPalette.Window, QColor(70, 80, 80))
+    palette.setColor(QPalette.Window, QColor(*Config.PALETTE_WINDOW))
     # テキスト：ダークグレー
-    palette.setColor(QPalette.WindowText, QColor(240, 240, 237))  # この行を修正
+    palette.setColor(QPalette.WindowText, QColor(*Config.PALETTE_WINDOW_TEXT))
     # 入力フィールド背景：オフホワイト
-    palette.setColor(QPalette.Base, QColor(240, 240, 237))
-    palette.setColor(QPalette.AlternateBase, QColor(230, 230, 227))
+    palette.setColor(QPalette.Base, QColor(*Config.PALETTE_BASE))
+    palette.setColor(QPalette.AlternateBase, QColor(*Config.PALETTE_ALTERNATE_BASE))
     # ツールチップ
-    palette.setColor(QPalette.ToolTipBase, QColor(240, 240, 237))
-    palette.setColor(QPalette.ToolTipText, QColor(51, 51, 51))
+    palette.setColor(QPalette.ToolTipBase, QColor(*Config.PALETTE_TOOLTIP_BASE))
+    palette.setColor(QPalette.ToolTipText, QColor(*Config.PALETTE_TOOLTIP_TEXT))
     # 通常のテキスト：ダークグレー
-    palette.setColor(QPalette.Text, QColor(51, 51, 51))
+    palette.setColor(QPalette.Text, QColor(*Config.PALETTE_TEXT))
     # ボタン
-    palette.setColor(QPalette.Button, QColor(240, 240, 237))
-    palette.setColor(QPalette.ButtonText, QColor(51, 51, 51))
+    palette.setColor(QPalette.Button, QColor(*Config.PALETTE_BUTTON))
+    palette.setColor(QPalette.ButtonText, QColor(*Config.PALETTE_BUTTON_TEXT))
     # 選択時のハイライト
-    palette.setColor(QPalette.Highlight, QColor(150, 150, 150))
-    palette.setColor(QPalette.HighlightedText, QColor(240, 240, 237))
+    palette.setColor(QPalette.Highlight, QColor(*Config.PALETTE_HIGHLIGHT))
+    palette.setColor(QPalette.HighlightedText, QColor(*Config.PALETTE_HIGHLIGHTED_TEXT))
     self.setPalette(palette)
 
     # VTKビューポートの背景色をシックなグレーに設定
     if hasattr(self, 'renderer'):
-        self.renderer.SetBackground(0.05, 0.05, 0.07)  # よりソフトなダークグレー
+        self.renderer.SetBackground(*Config.VTK_BACKGROUND_COLOR)
 
     # 追加のスタイル設定
-    self.setStyleSheet("""
-        QMainWindow {
-            background-color: #404244;
-        }
-        QPushButton {
-            background-color: #F0F0ED;
-            border: 1px solid #BBBBB7;
+    self.setStyleSheet(f"""
+        QMainWindow {{
+            background-color: {Config.STYLE_MAIN_BG};
+        }}
+        QPushButton {{
+            background-color: {Config.STYLE_BUTTON_BG};
+            border: 1px solid {Config.STYLE_BUTTON_BORDER};
             border-radius: 2px;
             padding: 2px 2px;
-            color: #333333;
+            color: {Config.STYLE_BUTTON_TEXT};
             min-width: 80px;
-        }
-        QPushButton:hover {
-            background-color: #E6E6E3;
+        }}
+        QPushButton:hover {{
+            background-color: {Config.STYLE_BUTTON_HOVER};
             border: 1px solid #AAAAAA;
-        }
-        QPushButton:pressed {
-            background-color: #DDDDD9;
+        }}
+        QPushButton:pressed {{
+            background-color: {Config.STYLE_BUTTON_PRESSED};
             padding-top: 4px;
             padding-bottom: 4px;
-        }
-        QLineEdit {
-            background-color: #F0F0ED;
-            border: 1px solid #BBBBB7;
-            color: #F0F0ED;
+        }}
+        QLineEdit {{
+            background-color: {Config.STYLE_INPUT_BG};
+            border: 1px solid {Config.STYLE_INPUT_BORDER};
+            color: {Config.STYLE_INPUT_TEXT};
             padding: 1px;  # パディングを小さく
             border-radius: 2px;
             min-height: 12px;  # 最小の高さを設定
             max-height: 12px;  # 最大の高さを設定
-        }
-        QLineEdit:focus {
+        }}
+        QLineEdit:focus {{
             border: 1px solid #999999;
             background-color: #FFFFFF;
-        }
-        QLabel {
-            color: #F0F0ED;
-        }
-        QCheckBox {
-            color: #F0F0ED;
+        }}
+        QLabel {{
+            color: {Config.STYLE_INPUT_TEXT};
+        }}
+        QCheckBox {{
+            color: {Config.STYLE_INPUT_TEXT};
             spacing: 10px;
-        }
-        QCheckBox::indicator {
+        }}
+        QCheckBox::indicator {{
             width: 12px;
             height: 12px;
-            background-color: #F0F0ED;
-            border: 1px solid #BBBBB7;
+            background-color: {Config.STYLE_INPUT_BG};
+            border: 1px solid {Config.STYLE_INPUT_BORDER};
             border-radius: 2px;
-        }
-        QCheckBox::indicator:checked {
+        }}
+        QCheckBox::indicator:checked {{
             background-color: #808487;
             border: 1px solid #666666;
-        }
-        QRadioButton {
-            color: #F0F0ED;
+        }}
+        QRadioButton {{
+            color: {Config.STYLE_INPUT_TEXT};
             spacing: 2px;
-        }
-        QRadioButton::indicator {
+        }}
+        QRadioButton::indicator {{
             width: 12px;
             height: 12px;
-            background-color: #F0F0ED;
-            border: 1px solid #BBBBB7;
+            background-color: {Config.STYLE_INPUT_BG};
+            border: 1px solid {Config.STYLE_INPUT_BORDER};
             border-radius: 2px;
-        }
-        QRadioButton::indicator:checked {
+        }}
+        QRadioButton::indicator:checked {{
             background-color: #808487;
             border: 1px solid #666666;
-        }
+        }}
     """)
 
     # ファイルダイアログのスタイル
-    self.setStyleSheet(self.styleSheet() + """
-        QFileDialog {
-            background-color: #404244;
-        }
-        QFileDialog QLabel {
-            color: #F0F0ED;
-        }
-        QFileDialog QLineEdit {
-            background-color: #F0F0ED;
-            color: #333333;
-            border: 1px solid #BBBBB7;
-        }
-        QFileDialog QPushButton {
-            background-color: #F0F0ED;
-            color: #333333;
-            border: 1px solid #BBBBB7;
-        }
-        QFileDialog QTreeView {
-            background-color: #F0F0ED;
-            color: #333333;
-        }
-        QFileDialog QComboBox {
-            background-color: #F0F0ED;
-            color: #333333;
-            border: 1px solid #BBBBB7;
-        }
+    self.setStyleSheet(self.styleSheet() + f"""
+        QFileDialog {{
+            background-color: {Config.STYLE_MAIN_BG};
+        }}
+        QFileDialog QLabel {{
+            color: {Config.STYLE_INPUT_TEXT};
+        }}
+        QFileDialog QLineEdit {{
+            background-color: {Config.STYLE_INPUT_BG};
+            color: {Config.STYLE_BUTTON_TEXT};
+            border: 1px solid {Config.STYLE_INPUT_BORDER};
+        }}
+        QFileDialog QPushButton {{
+            background-color: {Config.STYLE_BUTTON_BG};
+            color: {Config.STYLE_BUTTON_TEXT};
+            border: 1px solid {Config.STYLE_BUTTON_BORDER};
+        }}
+        QFileDialog QTreeView {{
+            background-color: {Config.STYLE_INPUT_BG};
+            color: {Config.STYLE_BUTTON_TEXT};
+        }}
+        QFileDialog QComboBox {{
+            background-color: {Config.STYLE_INPUT_BG};
+            color: {Config.STYLE_BUTTON_TEXT};
+            border: 1px solid {Config.STYLE_INPUT_BORDER};
+        }}
     """)
 
 
@@ -274,15 +276,15 @@ class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("URDF Kitchen - PartsEditor v0.0.1 -")
-        self.setGeometry(0, 0, 1200, 600)
+        self.setWindowTitle(Config.WINDOW_TITLE)
+        self.setGeometry(*Config.WINDOW_GEOMETRY)
         self.camera_rotation = [0, 0, 0]  # [yaw, pitch, roll]
         self.absolute_origin = [0, 0, 0]  # 大原点の設定
-        self.initial_camera_position = [10, 0, 0]  # 初期カメラ位置
-        self.initial_camera_focal_point = [0, 0, 0]  # 初期焦点
-        self.initial_camera_view_up = [0, 0, 1]  # 初期の上方向
+        self.initial_camera_position = Config.INITIAL_CAMERA_POSITION  # 初期カメラ位置
+        self.initial_camera_focal_point = Config.INITIAL_CAMERA_FOCAL_POINT  # 初期焦点
+        self.initial_camera_view_up = Config.INITIAL_CAMERA_VIEW_UP  # 初期の上方向
 
-        self.num_points = 8  # ポイントの数を8に設定
+        self.num_points = Config.NUM_POINTS  # ポイントの数を8に設定
         self.point_coords = [list(self.absolute_origin) for _ in range(self.num_points)]
         self.point_actors = [None] * self.num_points
         self.point_checkboxes = []
