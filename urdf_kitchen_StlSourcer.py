@@ -29,7 +29,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QTimer, Qt
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
-from urdf_kitchen_config import StlSourcerConfig as Config
+from utils.urdf_kitchen_config import StlSourcerConfig as Config
+from utils.urdf_kitchen_logger import setup_logger
+
+logger = setup_logger(__name__)
 
 class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
     def __init__(self, parent=None):
@@ -41,34 +44,34 @@ class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
     def on_char_event(self, obj, event):
         key = self.GetInteractor().GetKeySym()
         if key == "t":
-            print("[T] Toggle wireframe.")
+            logger.info("[T] Toggle wireframe.")
             self.toggle_wireframe()
         elif key == "r":
-            print("[R] Reset camera.")
+            logger.info("[R] Reset camera.")
             if self.parent:
                 self.parent.reset_camera()
         elif key == "a":
-            print("[A] Rotate 90° left.")
+            logger.info("[A] Rotate 90° left.")
             if self.parent:
                 self.parent.rotate_camera(90, 'yaw')
         elif key == "d":
-            print("[D] Rotate 90° right.")
+            logger.info("[D] Rotate 90° right.")
             if self.parent:
                 self.parent.rotate_camera(-90, 'yaw')
         elif key == "w":
-            print("[W] Rotate 90° up.")
+            logger.info("[W] Rotate 90° up.")
             if self.parent:
                 self.parent.rotate_camera(-90, 'pitch')
         elif key == "s":
-            print("[S] Rotate 90° down.")
+            logger.info("[S] Rotate 90° down.")
             if self.parent:
                 self.parent.rotate_camera(90, 'pitch')
         elif key == "q":
-            print("[Q] Rotate 90° counterclockwise.")
+            logger.info("[Q] Rotate 90° counterclockwise.")
             if self.parent:
                 self.parent.rotate_camera(90, 'roll')
         elif key == "e":
-            print("[E] Rotate 90° clockwise.")
+            logger.info("[E] Rotate 90° clockwise.")
             if self.parent:
                 self.parent.rotate_camera(-90, 'roll')
         else:
@@ -302,9 +305,9 @@ class MainWindow(QMainWindow):
             else:
                 self.update_point_display(index)
 
-            print(f"Point {index+1} set to: ({x}, {y}, {z})")
+            logger.info(f"Point {index+1} set to: ({x}, {y}, {z})")
         except ValueError:
-            print(
+            logger.error(
                 f"Invalid input for Point {index+1}. Please enter valid numbers for coordinates.")
 
     def setup_vtk(self):
@@ -335,14 +338,14 @@ class MainWindow(QMainWindow):
         self.update_point_display(index)
         if self.point_checkboxes[index].isChecked():
             self.show_point(index)
-        print(f"Point {index+1} reset to origin {self.absolute_origin}")
+        logger.info(f"Point {index+1} reset to origin {self.absolute_origin}")
 
     def reset_points(self):
         for i in range(self.num_points):
             if self.point_checkboxes[i].isChecked():
                 self.point_coords[i] = list(self.absolute_origin)  # 原点にリセット
                 self.update_point_display(i)
-                print(f"Point {i+1} reset to origin {self.absolute_origin}")
+                logger.info(f"Point {i+1} reset to origin {self.absolute_origin}")
 
 
     def reset_camera(self):
@@ -395,10 +398,10 @@ class MainWindow(QMainWindow):
         # マーカーの表示を更新
         self.update_all_points_size()
 
-        print("Camera reset to default position")
-        print("View direction: Looking from +X towards origin")
-        print("Up direction: +Z")
-        print("Right direction: +Y")
+        logger.info("Camera reset to default position")
+        logger.info("View direction: Looking from +X towards origin")
+        logger.info("Up direction: +Z")
+        logger.info("Right direction: +Y")
 
     def update_point_position(self, index, x, y):
         renderer = self.renderer
@@ -423,7 +426,7 @@ class MainWindow(QMainWindow):
         self.point_coords[index] = [new_pos[0], new_pos[1], current_z]
         self.update_point_display(index)
 
-        print(
+        logger.debug(
             f"Point {index+1} moved to: ({new_pos[0]:.4f}, {new_pos[1]:.4f}, {current_z:.4f})")
 
     def update_point_display(self, index):
@@ -450,7 +453,7 @@ class MainWindow(QMainWindow):
                 try:
                     values[prop] = float(input_field.text())
                 except ValueError:
-                    print(f"Invalid input for {prop}")
+                    logger.error(f"Invalid input for {prop}")
                     return
 
         # 値の計算
@@ -493,8 +496,8 @@ class MainWindow(QMainWindow):
         axis_length = self.calculate_sphere_radius() * 36  # 直径の18倍（6倍の3倍）を軸の長さとして使用
         circle_radius = self.calculate_sphere_radius()
 
-        print(f"Creating point coordinate at {coords}")
-        print(f"Axis length: {axis_length}, Circle radius: {circle_radius}")
+        logger.debug(f"Creating point coordinate at {coords}")
+        logger.debug(f"Axis length: {axis_length}, Circle radius: {circle_radius}")
 
         # XYZ軸の作成
         colors = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]  # 赤、緑、青
@@ -521,7 +524,7 @@ class MainWindow(QMainWindow):
                 actor.GetProperty().SetLineWidth(2)
 
                 assembly.AddPart(actor)
-                print(
+                logger.debug(
                     f"Added {['X', 'Y', 'Z'][i]} axis {'positive' if direction == 1 else 'negative'}")
 
         # XY, XZ, YZ平面の円を作成
@@ -557,9 +560,9 @@ class MainWindow(QMainWindow):
             actor.SetUserTransform(transform)
 
             assembly.AddPart(actor)
-            print(f"Added {plane} circle")
+            logger.debug(f"Added {plane} circle")
 
-        print(f"Point coordinate creation completed")
+        logger.debug(f"Point coordinate creation completed")
 
     def calculate_sphere_radius(self):
         camera = self.renderer.GetActiveCamera()
@@ -592,13 +595,13 @@ class MainWindow(QMainWindow):
             side_length = np.cbrt(volume)
             inertia = (1/6) * mass * side_length**2
 
-            print(f"Volume: {volume:.6f} m^3")
-            print(f"Density: {density:.6f} kg/m^3")
-            print(f"Mass: {mass:.6f} kg")
-            print(f"Inertia: {inertia:.6f} kg·m^2")
+            logger.info(f"Volume: {volume:.6f} m^3")
+            logger.info(f"Density: {density:.6f} kg/m^3")
+            logger.info(f"Mass: {mass:.6f} kg")
+            logger.info(f"Inertia: {inertia:.6f} kg·m^2")
 
         except ValueError:
-            print(
+            logger.error(
                 "Error calculating properties. Please ensure the volume is a valid number.")
 
     def apply_camera_rotation(self, camera):
@@ -749,7 +752,7 @@ class MainWindow(QMainWindow):
         self.fit_camera_to_model()
         self.update_all_points()
 
-        print(f"STL model bounding box: [{self.model_bounds[0]:.4f}, {self.model_bounds[1]:.4f}], [{self.model_bounds[2]:.4f}, {self.model_bounds[3]:.4f}], [{self.model_bounds[4]:.4f}, {self.model_bounds[5]:.4f}]")
+        logger.info(f"STL model bounding box: [{self.model_bounds[0]:.4f}, {self.model_bounds[1]:.4f}], [{self.model_bounds[2]:.4f}, {self.model_bounds[3]:.4f}], [{self.model_bounds[4]:.4f}, {self.model_bounds[5]:.4f}]")
 
         self.show_absolute_origin()
 
@@ -836,7 +839,7 @@ class MainWindow(QMainWindow):
         self.render_window.Render()
 
     def export_urdf(self):
-        print("URDF export functionality will be implemented here")
+        logger.info("URDF export functionality will be implemented here")
 
     def get_axis_length(self):
         if self.model_bounds:
@@ -866,9 +869,9 @@ class MainWindow(QMainWindow):
             else:
                 self.update_point_display(index)
 
-            print(f"Point {index+1} set to: ({x}, {y}, {z})")
+            logger.info(f"Point {index+1} set to: ({x}, {y}, {z})")
         except ValueError:
-            print(
+            logger.error(
                 f"Invalid input for Point {index+1}. Please enter valid numbers for coordinates.")
 
     def move_point(self, index, dx, dy, dz):
@@ -879,7 +882,7 @@ class MainWindow(QMainWindow):
         ]
         self.point_coords[index] = new_position
         self.update_point_display(index)
-        print(
+        logger.debug(
             f"Point {index+1} moved to: ({new_position[0]:.4f}, {new_position[1]:.4f}, {new_position[2]:.4f})")
 
     def move_point_screen(self, index, direction, step):
@@ -891,7 +894,7 @@ class MainWindow(QMainWindow):
         ]
         self.point_coords[index] = new_position
         self.update_point_display(index)
-        print(
+        logger.debug(
             f"Point {index+1} moved to: ({new_position[0]:.4f}, {new_position[1]:.4f}, {new_position[2]:.4f})")
 
     def fit_camera_to_model(self):
@@ -934,7 +937,7 @@ class MainWindow(QMainWindow):
         self.render_window.Render()
 
     def handle_close(self, event):
-        print("Window is closing...")
+        logger.info("Window is closing...")
         self.vtk_widget.GetRenderWindow().Finalize()
         self.vtk_widget.close()
         event.accept()
@@ -963,7 +966,7 @@ class MainWindow(QMainWindow):
 
     def export_stl_with_new_origin(self):
         if not self.stl_actor or not any(self.point_actors):
-            print("STL model or points are not set.")
+            logger.warning("STL model or points are not set.")
             return
 
         file_path, _ = QFileDialog.getSaveFileName(
@@ -997,10 +1000,10 @@ class MainWindow(QMainWindow):
             stl_writer.SetInputData(transform_filter.GetOutput())
             stl_writer.Write()
 
-            print(f"STL file has been saved in the current coordinate system: {file_path}")
+            logger.info(f"STL file has been saved in the current coordinate system: {file_path}")
 
         except Exception as e:
-            print(f"An error occurred: {str(e)}")
+            logger.error(f"An error occurred: {str(e)}")
 
     def handle_set_front_as_x(self):
         button_text = self.sender().text()
@@ -1012,7 +1015,7 @@ class MainWindow(QMainWindow):
         STLモデルを正面向きの状態に変換する
         """
         if not self.stl_actor:
-            print("No STL model is loaded.")
+            logger.warning("No STL model is loaded.")
             return
 
         # 既存の変換を取得
@@ -1075,11 +1078,11 @@ class MainWindow(QMainWindow):
                         if new_coords != self.point_coords[i]:
                             self.point_coords[i] = new_coords
                             self.update_point_display(i)
-                            print(f"Point {i+1} set to: {new_coords}")
+                            logger.info(f"Point {i+1} set to: {new_coords}")
                         else:
-                            print(f"Point {i+1} coordinates unchanged")
+                            logger.info(f"Point {i+1} coordinates unchanged")
                     except ValueError:
-                        print(
+                        logger.warning(
                             f"Invalid input for Point {i+1}. Please enter valid numbers.")
         elif button_text == "Set Front as X":
             self.handle_set_front_as_x()
@@ -1170,7 +1173,7 @@ class MainWindow(QMainWindow):
         カメラの視点に基づいて座標系を再定義する
         """
         if not self.stl_actor:
-            print("No STL model is loaded.")
+            logger.warning("No STL model is loaded.")
             return
 
         # 1. カメラ情報の取得
@@ -1227,13 +1230,13 @@ class MainWindow(QMainWindow):
         self.reset_camera()
 
         # 10. デバッグ情報
-        # print("\n=== 座標変換情報 ===")
-        # print(f"新しいX軸（画面手前）: {x_axis}")
-        # print(f"新しいY軸（画面右）: {y_axis}")
-        # print(f"新しいZ軸（画面上）: {z_axis}")
+        # logger.debug("\n=== 座標変換情報 ===")
+        # logger.debug(f"新しいX軸（画面手前）: {x_axis}")
+        # logger.debug(f"新しいY軸（画面右）: {y_axis}")
+        # logger.debug(f"新しいZ軸（画面上）: {z_axis}")
 
 def signal_handler(sig, frame):
-    print("Ctrl+C detected, closing application...")
+    logger.info("Ctrl+C detected, closing application...")
     QApplication.instance().quit()
 
 

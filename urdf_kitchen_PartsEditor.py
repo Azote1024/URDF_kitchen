@@ -40,7 +40,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QTextOption, QColor, QPalette
 
-from urdf_kitchen_config import PartsEditorConfig as Config
+from utils.urdf_kitchen_config import PartsEditorConfig as Config
+from utils.urdf_kitchen_logger import setup_logger
+
+logger = setup_logger(__name__)
 
 # pip install numpy
 # pip install PySide6
@@ -185,34 +188,34 @@ class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
     def on_char_event(self, obj, event):
         key = self.GetInteractor().GetKeySym()
         if key == "t":
-            print("[T] Toggle wireframe.")
+            logger.info("[T] Toggle wireframe.")
             self.toggle_wireframe()
         elif key == "r":
-            print("[R] Reset camera.")
+            logger.info("[R] Reset camera.")
             if self.parent:
                 self.parent.reset_camera()
         elif key == "a":
-            print("[A] Rotate 90° left.")
+            logger.info("[A] Rotate 90° left.")
             if self.parent:
                 self.parent.rotate_camera(90, 'yaw')
         elif key == "d":
-            print("[D] Rotate 90° right.")
+            logger.info("[D] Rotate 90° right.")
             if self.parent:
                 self.parent.rotate_camera(-90, 'yaw')
         elif key == "w":
-            print("[W] Rotate 90° up.")
+            logger.info("[W] Rotate 90° up.")
             if self.parent:
                 self.parent.rotate_camera(-90, 'pitch')
         elif key == "s":
-            print("[S] Rotate 90° down.")
+            logger.info("[S] Rotate 90° down.")
             if self.parent:
                 self.parent.rotate_camera(90, 'pitch')
         elif key == "q":
-            print("[Q] Rotate 90° counterclockwise.")
+            logger.info("[Q] Rotate 90° counterclockwise.")
             if self.parent:
                 self.parent.rotate_camera(90, 'roll')
         elif key == "e":
-            print("[E] Rotate 90° clockwise.")
+            logger.info("[E] Rotate 90° clockwise.")
             if self.parent:
                 self.parent.rotate_camera(-90, 'roll')
         else:
@@ -655,9 +658,9 @@ class MainWindow(QMainWindow):
             else:
                 self.update_point_display(index)
             
-            print(f"Point {index+1} set to: ({x}, {y}, {z})")
+            logger.info(f"Point {index+1} set to: ({x}, {y}, {z})")
         except ValueError:
-            print(f"Invalid input for Point {index+1}. Please enter valid numbers for coordinates.")
+            logger.error(f"Invalid input for Point {index+1}. Please enter valid numbers for coordinates.")
 
     def setup_vtk(self):
         self.renderer = vtk.vtkRenderer()
@@ -686,7 +689,7 @@ class MainWindow(QMainWindow):
         self.update_point_display(index)
         if self.point_checkboxes[index].isChecked():
             self.show_point(index)
-        print(f"Point {index+1} reset to origin {self.absolute_origin}")
+        logger.info(f"Point {index+1} reset to origin {self.absolute_origin}")
 
     def reset_camera(self):
         camera = self.renderer.GetActiveCamera()
@@ -726,7 +729,7 @@ class MainWindow(QMainWindow):
         self.point_coords[index] = [new_pos[0], new_pos[1], current_z]
         self.update_point_display(index)
 
-        print(f"Point {index+1} moved to: ({new_pos[0]:.6f}, {new_pos[1]:.6f}, {current_z:.6f})")
+        logger.debug(f"Point {index+1} moved to: ({new_pos[0]:.6f}, {new_pos[1]:.6f}, {current_z:.6f})")
 
     def update_inertia_from_mass(self, mass):
         # イナーシャを重さから計算する例（適宜調整してください）
@@ -746,7 +749,7 @@ class MainWindow(QMainWindow):
                 try:
                     values[prop] = float(input_field.text())
                 except ValueError:
-                    print(f"Invalid input for {prop}")
+                    logger.error(f"Invalid input for {prop}")
                     return
 
         # 値の計算
@@ -826,8 +829,8 @@ class MainWindow(QMainWindow):
         axis_length = self.calculate_sphere_radius() * 36  # 直径の18倍（6倍の3倍）を軸の長さとして使用
         circle_radius = self.calculate_sphere_radius()
 
-        print(f"Creating point coordinate at {coords}")
-        print(f"Axis length: {axis_length}, Circle radius: {circle_radius}")
+        logger.debug(f"Creating point coordinate at {coords}")
+        logger.debug(f"Axis length: {axis_length}, Circle radius: {circle_radius}")
 
         # XYZ軸の作成
         colors = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]  # 赤、緑、青
@@ -854,7 +857,7 @@ class MainWindow(QMainWindow):
                 actor.GetProperty().SetLineWidth(2)
 
                 assembly.AddPart(actor)
-                print(f"Added {['X', 'Y', 'Z'][i]} axis {'positive' if direction == 1 else 'negative'}")
+                logger.debug(f"Added {['X', 'Y', 'Z'][i]} axis {'positive' if direction == 1 else 'negative'}")
 
         # XY, XZ, YZ平面の円を作成
         for i in range(3):
@@ -889,9 +892,9 @@ class MainWindow(QMainWindow):
             actor.SetUserTransform(transform)
 
             assembly.AddPart(actor)
-            print(f"Added {plane} circle")
+            logger.debug(f"Added {plane} circle")
 
-        print(f"Point coordinate creation completed")
+        logger.debug(f"Point coordinate creation completed")
 
     def calculate_sphere_radius(self):
         # ビューポートのサイズを取得
@@ -934,7 +937,7 @@ class MainWindow(QMainWindow):
                 try:
                     values[prop] = float(input_field.text())
                 except ValueError:
-                    print(f"Invalid input for {prop}")
+                    logger.error(f"Invalid input for {prop}")
                     return
 
         # 値の計算
@@ -1020,7 +1023,7 @@ class MainWindow(QMainWindow):
             self.calculate_inertia_tensor()
 
         except (ValueError, ZeroDivisionError) as e:
-            print(f"An error occurred during calculation: {str(e)}")
+            logger.error(f"An error occurred during calculation: {str(e)}", exc_info=True)
             return None
 
         return properties
@@ -1031,7 +1034,7 @@ class MainWindow(QMainWindow):
         チェックボックスがオンの場合は入力値を使用し、オフの場合は計算値を使用する。
         """
         if not hasattr(self, 'stl_actor') or not self.stl_actor:
-            print("No STL model has been loaded.")
+            logger.warning("No STL model has been loaded.")
             return
 
         # 重心の座標を取得（チェックボックスの状態に応じて）

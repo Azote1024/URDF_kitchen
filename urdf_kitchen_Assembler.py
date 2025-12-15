@@ -31,7 +31,11 @@ import base64
 import shutil
 import datetime
 
-from urdf_kitchen_config import AssemblerConfig as Config
+from utils.urdf_kitchen_config import AssemblerConfig as Config
+from utils.urdf_kitchen_logger import setup_logger
+
+# ロガーのセットアップ
+logger = setup_logger("Assembler")
 
 def apply_dark_theme(app):
     dark_palette = QPalette()
@@ -85,7 +89,7 @@ class BaseLinkNode(BaseNode):
 
     def add_input(self, name='', **kwargs):
         # 入力ポートの追加を禁止
-        print("Base Link node cannot have input ports")
+        logger.warning("Base Link node cannot have input ports")
         return None
 
     def add_output(self, name='out_1', **kwargs):
@@ -96,20 +100,23 @@ class BaseLinkNode(BaseNode):
 
     def remove_output(self, port=None):
         # 出力ポートの削除を禁止
-        print("Cannot remove output port from Base Link node")
+        logger.warning("Cannot remove output port from Base Link node")
         return None
 
     def has_output(self, name):
         """指定した名前の出力ポートが存在するかチェック"""
         return name in [p.name() for p in self.output_ports()]
 
-class FooNode(BaseNode):
-    """General purpose node class"""
+class LinkNode(BaseNode):
+    """
+    ロボットのリンクを表す汎用ノードクラス
+    BaseLink以外の全てのリンクはこのクラスのインスタンスとして表現されます。
+    """
     __identifier__ = 'insilico.nodes'
-    NODE_NAME = 'FooNode'
+    NODE_NAME = 'LinkNode'
     
     def __init__(self):
-        super(FooNode, self).__init__()
+        super(LinkNode, self).__init__()
         self.add_input('in', color=(180, 80, 0))
         
         self.output_count = 0
@@ -143,7 +150,7 @@ class FooNode(BaseNode):
         if self.output_count < Config.MAX_OUTPUT_PORTS:  # 最大8ポートまで
             self.output_count += 1
             port_name = f'out_{self.output_count}'
-            super(FooNode, self).add_output(port_name)
+            super(LinkNode, self).add_output(port_name)
             
             # ポイントデータの初期化
             if not hasattr(self, 'points'):
@@ -165,7 +172,7 @@ class FooNode(BaseNode):
                 'xyz': [0.0, 0.0, 0.0]
             })
             
-            print(f"Added output port '{port_name}' with zero coordinates")
+            logger.info(f"Added output port '{port_name}' with zero coordinates")
             return port_name
 
     def remove_output(self):
@@ -178,41 +185,41 @@ class FooNode(BaseNode):
                     # 接続されているポートを処理
                     for connected_port in output_port.connected_ports():
                         try:
-                            print(f"Disconnecting {port_name} from {connected_port.node().name()}.{connected_port.name()}")
+                            logger.info(f"Disconnecting {port_name} from {connected_port.node().name()}.{connected_port.name()}")
                             # NodeGraphQtの標準メソッドを使用
                             self.graph.disconnect_node(self.id, port_name,
                                                      connected_port.node().id, connected_port.name())
                         except Exception as e:
-                            print(f"Error during disconnection: {str(e)}")
+                            logger.error(f"Error during disconnection: {str(e)}")
 
                     # 対応するポイントデータを削除
                     if len(self.points) >= self.output_count:
                         self.points.pop()
-                        print(f"Removed point data for port {port_name}")
+                        logger.info(f"Removed point data for port {port_name}")
 
                     # 累積座標を削除
                     if len(self.cumulative_coords) >= self.output_count:
                         self.cumulative_coords.pop()
-                        print(f"Removed cumulative coordinates for port {port_name}")
+                        logger.info(f"Removed cumulative coordinates for port {port_name}")
 
                     # ポートの削除
                     self.delete_output(output_port)
                     self.output_count -= 1
-                    print(f"Removed port {port_name}")
+                    logger.info(f"Removed port {port_name}")
 
                     # ビューの更新
                     self.view.update()
                     
                 except Exception as e:
-                    print(f"Error removing port and associated data: {str(e)}")
-                    traceback.print_exc()
+                    logger.error(f"Error removing port and associated data: {str(e)}")
+                    logger.error(traceback.format_exc())
             else:
-                print(f"Output port {port_name} not found")
+                logger.warning(f"Output port {port_name} not found")
         else:
-            print("Cannot remove the last output port")
+            logger.warning("Cannot remove the last output port")
 
     def node_double_clicked(self, event):
-        print(f"Node {self.name()} double-clicked!")
+        logger.debug(f"Node {self.name()} double-clicked!")
         if hasattr(self.graph, 'show_inspector'):
             try:
                 # グラフのビューを正しく取得
@@ -223,18 +230,28 @@ class FooNode(BaseNode):
                 view_pos = graph_view.mapFromScene(scene_pos)
                 screen_pos = graph_view.mapToGlobal(view_pos)
                 
-                print(f"Double click at screen coordinates: ({screen_pos.x()}, {screen_pos.y()})")
+                logger.debug(f"Double click at screen coordinates: ({screen_pos.x()}, {screen_pos.y()})")
                 self.graph.show_inspector(self, screen_pos)
                 
             except Exception as e:
-                print(f"Error getting mouse position: {str(e)}")
-                traceback.print_exc()
+                logger.error(f"Error getting mouse position: {str(e)}")
+                logger.error(traceback.format_exc())
                 # フォールバック：位置指定なしでインスペクタを表示
                 self.graph.show_inspector(self)
         else:
-            print("Error: graph does not have show_inspector method")
+            logger.error("Error: graph does not have show_inspector method")
 
 class InspectorWindow(QtWidgets.QWidget):
+    """
+    ノードの詳細情報を表示・編集するためのインスペクタウィンドウ
+    
+    機能:
+    - ノード名の編集
+    - 物理プロパティ（質量、体積、慣性モーメント）の表示
+    - STLファイルの関連付けと表示設定
+    - 接続ポイント（ポート）の座標編集
+    - ノードカラーの変更
+    """
     
     def __init__(self, parent=None, stl_viewer=None):
         super(InspectorWindow, self).__init__(parent)
@@ -455,17 +472,16 @@ class InspectorWindow(QtWidgets.QWidget):
                 for input_field in port_widget.findChildren(QtWidgets.QLineEdit):
                     input_field.setValidator(coord_validator)
 
-            print("Input validators setup completed")
+            logger.debug("Input validators setup completed")
 
         except Exception as e:
-            print(f"Error setting up validators: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error setting up validators: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def apply_color_to_stl(self):
         """選択された色をSTLモデルとカラーサンプルに適用"""
         if not self.current_node:
-            print("No node selected")
+            logger.warning("No node selected")
             return
         
         try:
@@ -491,15 +507,15 @@ class InspectorWindow(QtWidgets.QWidget):
                     actor = self.stl_viewer.stl_actors[self.current_node]
                     actor.GetProperty().SetColor(*rgb_values)
                     self.stl_viewer.vtkWidget.GetRenderWindow().Render()
-                    print(f"Applied color: RGB({rgb_values[0]:.3f}, {rgb_values[1]:.3f}, {rgb_values[2]:.3f})")
+                    logger.info(f"Applied color: RGB({rgb_values[0]:.3f}, {rgb_values[1]:.3f}, {rgb_values[2]:.3f})")
                 else:
-                    print("No STL model found for this node")
+                    logger.warning("No STL model found for this node")
             
         except ValueError as e:
-            print(f"Error: Invalid color value - {str(e)}")
+            logger.error(f"Error: Invalid color value - {str(e)}")
         except Exception as e:
-            print(f"Error applying color: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Error applying color: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def update_color_sample(self):
         """カラーサンプルの表示を更新"""
@@ -515,8 +531,8 @@ class InspectorWindow(QtWidgets.QWidget):
                 self.current_node.node_color = [float(input.text()) for input in self.color_inputs]
                 
         except ValueError as e:
-            print(f"Error updating color sample: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Error updating color sample: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def update_port_coordinate(self, port_index, coord_index, value):
         """ポート座標の更新"""
@@ -526,12 +542,12 @@ class InspectorWindow(QtWidgets.QWidget):
                     try:
                         new_value = float(value)
                         self.current_node.points[port_index]['xyz'][coord_index] = new_value
-                        print(
+                        logger.debug(
                             f"Updated port {port_index+1} coordinate {coord_index} to {new_value}")
                     except ValueError:
-                        print("Invalid coordinate value")
+                        logger.warning("Invalid coordinate value")
         except Exception as e:
-            print(f"Error updating coordinate: {str(e)}")
+            logger.error(f"Error updating coordinate: {str(e)}")
 
     def update_info(self, node):
         """ノード情報の更新"""
@@ -544,37 +560,37 @@ class InspectorWindow(QtWidgets.QWidget):
             # Volume & Mass
             if hasattr(node, 'volume_value'):
                 self.volume_input.setText(f"{node.volume_value:.6f}")
-                print(f"Volume set to: {node.volume_value}")
+                logger.debug(f"Volume set to: {node.volume_value}")
 
             if hasattr(node, 'mass_value'):
                 self.mass_input.setText(f"{node.mass_value:.6f}")
-                print(f"Mass set to: {node.mass_value}")
+                logger.debug(f"Mass set to: {node.mass_value}")
 
             # Rotation Axis - nodeのrotation_axis属性を確認して設定
             if hasattr(node, 'rotation_axis'):
                 axis_button = self.axis_group.button(node.rotation_axis)
                 if axis_button:
                     axis_button.setChecked(True)
-                    print(f"Rotation axis set to: {node.rotation_axis}")
+                    logger.debug(f"Rotation axis set to: {node.rotation_axis}")
             else:
                 # デフォルトでX軸を選択
                 node.rotation_axis = 0
                 if self.axis_group.button(0):
                     self.axis_group.button(0).setChecked(True)
-                    print("Default rotation axis set to X (0)")
+                    logger.debug("Default rotation axis set to X (0)")
 
             # Massless Decoration の状態を設定
             if hasattr(node, 'massless_decoration'):
                 self.massless_checkbox.setChecked(node.massless_decoration)
-                print(f"Massless decoration set to: {node.massless_decoration}")
+                logger.debug(f"Massless decoration set to: {node.massless_decoration}")
             else:
                 node.massless_decoration = False
                 self.massless_checkbox.setChecked(False)
-                print("Default massless decoration set to False")
+                logger.debug("Default massless decoration set to False")
 
             # Color settings - nodeのnode_color属性を確認して設定
             if hasattr(node, 'node_color') and node.node_color:
-                print(f"Setting color: {node.node_color}")
+                logger.debug(f"Setting color: {node.node_color}")
                 for i, value in enumerate(node.node_color[:3]):
                     self.color_inputs[i].setText(f"{value:.3f}")
                 
@@ -594,7 +610,7 @@ class InspectorWindow(QtWidgets.QWidget):
                 self.color_sample.setStyleSheet(
                     "background-color: rgb(255,255,255); border: 1px solid black;"
                 )
-                print("Default color set to white")
+                logger.debug("Default color set to white")
 
             # 回転軸の選択を更新するためのシグナルを接続
             for button in self.axis_group.buttons():
@@ -609,17 +625,17 @@ class InspectorWindow(QtWidgets.QWidget):
             # バリデータの設定
             self.setup_validators()
 
-            print(f"Inspector window updated for node: {node.name()}")
+            logger.debug(f"Inspector window updated for node: {node.name()}")
 
         except Exception as e:
-            print(f"Error updating inspector info: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Error updating inspector info: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def update_rotation_axis(self, button):
         """回転軸の選択が変更されたときの処理"""
         if self.current_node:
             self.current_node.rotation_axis = self.axis_group.id(button)
-            print(f"Updated rotation axis to: {self.current_node.rotation_axis}")
+            logger.debug(f"Updated rotation axis to: {self.current_node.rotation_axis}")
 
     def on_axis_selection_changed(self, button):
         """回転軸の選択が変更されたときのイベントハンドラ"""
@@ -638,9 +654,9 @@ class InspectorWindow(QtWidgets.QWidget):
             # 軸のタイプを判定して表示
             axis_types = ['X (Roll)', 'Y (Pitch)', 'Z (Yaw)', 'Fixed']
             if 0 <= axis_id < len(axis_types):
-                print(f"Rotation axis changed to: {axis_types[axis_id]}")
+                logger.debug(f"Rotation axis changed to: {axis_types[axis_id]}")
             else:
-                print(f"Invalid rotation axis ID: {axis_id}")
+                logger.warning(f"Invalid rotation axis ID: {axis_id}")
 
             # STLモデルの更新
             if self.stl_viewer:
@@ -664,7 +680,7 @@ class InspectorWindow(QtWidgets.QWidget):
                     if self.current_node in self.stl_viewer.stl_actors:
                         self.stl_viewer.stl_actors[self.current_node].SetUserTransform(transform)
                         self.stl_viewer.vtkWidget.GetRenderWindow().Render()
-                        print(f"Updated transform for node {self.current_node.name()} at position {current_position}")
+                        logger.debug(f"Updated transform for node {self.current_node.name()} at position {current_position}")
                         
     def show_color_picker(self):
         """カラーピッカーを表示"""
@@ -703,7 +719,7 @@ class InspectorWindow(QtWidgets.QWidget):
             # STLモデルに色を適用
             self.apply_color_to_stl()
             
-            print(f"Color picker: Selected RGB({rgb_values[0]:.3f}, {rgb_values[1]:.3f}, {rgb_values[2]:.3f})")
+            logger.info(f"Color picker: Selected RGB({rgb_values[0]:.3f}, {rgb_values[1]:.3f}, {rgb_values[2]:.3f})")
 
     def update_node_name(self):
         """ノード名の更新"""
@@ -712,7 +728,7 @@ class InspectorWindow(QtWidgets.QWidget):
             old_name = self.current_node.name()
             if new_name != old_name:
                 self.current_node.set_name(new_name)
-                print(f"Node name updated from '{old_name}' to '{new_name}'")
+                logger.info(f"Node name updated from '{old_name}' to '{new_name}'")
 
     def add_point(self):
         """ポイントの追加"""
@@ -720,14 +736,14 @@ class InspectorWindow(QtWidgets.QWidget):
             new_port_name = self.current_node._add_output()
             if new_port_name:
                 self.update_info(self.current_node)
-                print(f"Added new port: {new_port_name}")
+                logger.info(f"Added new port: {new_port_name}")
 
     def remove_point(self):
         """ポイントの削除"""
         if self.current_node and hasattr(self.current_node, 'remove_output'):
             self.current_node.remove_output()
             self.update_info(self.current_node)
-            print("Removed last port")
+            logger.info("Removed last port")
 
     def load_stl(self):
         """STLファイルの読み込み"""
@@ -757,13 +773,13 @@ class InspectorWindow(QtWidgets.QWidget):
             event.accept()
 
         except Exception as e:
-            print(f"Error in closeEvent: {str(e)}")
+            logger.error(f"Error in closeEvent: {str(e)}")
             event.accept()
 
     def load_xml(self):
         """XMLファイルの読み込み"""
         if not self.current_node:
-            print("No node selected")
+            logger.warning("No node selected")
             return
 
         file_name, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -777,10 +793,10 @@ class InspectorWindow(QtWidgets.QWidget):
             root = tree.getroot()
 
             if root.tag != 'urdf_part':
-                print("Invalid XML format: Root element should be 'urdf_part'")
+                logger.error("Invalid XML format: Root element should be 'urdf_part'")
                 return
 
-            print("Loading XML file...")
+            logger.info("Loading XML file...")
 
             # リンク名の取得と設定
             link_elem = root.find('link')
@@ -789,7 +805,7 @@ class InspectorWindow(QtWidgets.QWidget):
                 if link_name:
                     self.current_node.set_name(link_name)
                     self.name_edit.setText(link_name)
-                    print(f"Set link name: {link_name}")
+                    logger.debug(f"Set link name: {link_name}")
 
                 # 物理プロパティの設定
                 inertial_elem = link_elem.find('inertial')
@@ -800,7 +816,7 @@ class InspectorWindow(QtWidgets.QWidget):
                         volume = float(volume_elem.get('value', '0.0'))
                         self.current_node.volume_value = volume
                         self.volume_input.setText(f"{volume:.6f}")
-                        print(f"Set volume: {volume}")
+                        logger.debug(f"Set volume: {volume}")
 
                     # 質量の設定
                     mass_elem = inertial_elem.find('mass')
@@ -808,7 +824,7 @@ class InspectorWindow(QtWidgets.QWidget):
                         mass = float(mass_elem.get('value', '0.0'))
                         self.current_node.mass_value = mass
                         self.mass_input.setText(f"{mass:.6f}")
-                        print(f"Set mass: {mass}")
+                        logger.debug(f"Set mass: {mass}")
 
                     # 慣性モーメントの設定
                     inertia_elem = inertial_elem.find('inertia')
@@ -821,7 +837,7 @@ class InspectorWindow(QtWidgets.QWidget):
                             'iyz': float(inertia_elem.get('iyz', '0')),
                             'izz': float(inertia_elem.get('izz', '0'))
                         }
-                        print("Set inertia tensor")
+                        logger.debug("Set inertia tensor")
 
             # 色情報の処理
             material_elem = root.find('.//material/color')
@@ -835,7 +851,7 @@ class InspectorWindow(QtWidgets.QWidget):
                 self.update_color_sample()
                 # STLモデルに色を適用
                 self.apply_color_to_stl()
-                print(f"Set color: RGB({rgb_values[0]:.3f}, {rgb_values[1]:.3f}, {rgb_values[2]:.3f})")
+                logger.debug(f"Set color: RGB({rgb_values[0]:.3f}, {rgb_values[1]:.3f}, {rgb_values[2]:.3f})")
 
             # 回転軸の処理
             joint_elem = root.find('joint')
@@ -846,7 +862,7 @@ class InspectorWindow(QtWidgets.QWidget):
                     self.current_node.rotation_axis = 3  # 3をFixedとして使用
                     if self.axis_group.button(3):  # Fixed用のボタンが存在する場合
                         self.axis_group.button(3).setChecked(True)
-                    print("Set rotation axis to Fixed")
+                    logger.debug("Set rotation axis to Fixed")
                 else:
                     # 回転軸の処理
                     axis_elem = joint_elem.find('axis')
@@ -856,37 +872,37 @@ class InspectorWindow(QtWidgets.QWidget):
                         if axis_values[2] == 1:  # Z軸
                             self.current_node.rotation_axis = 2
                             self.axis_group.button(2).setChecked(True)
-                            print("Set rotation axis to Z")
+                            logger.debug("Set rotation axis to Z")
                         elif axis_values[1] == 1:  # Y軸
                             self.current_node.rotation_axis = 1
                             self.axis_group.button(1).setChecked(True)
-                            print("Set rotation axis to Y")
+                            logger.debug("Set rotation axis to Y")
                         else:  # X軸（デフォルト）
                             self.current_node.rotation_axis = 0
                             self.axis_group.button(0).setChecked(True)
-                            print("Set rotation axis to X")
-                        print(f"Set rotation axis from xyz: {axis_xyz}")
+                            logger.debug("Set rotation axis to X")
+                        logger.debug(f"Set rotation axis from xyz: {axis_xyz}")
 
             # ポイントの処理
             points = root.findall('point')
             num_points = len(points)
-            print(f"Found {num_points} points in XML")
+            logger.debug(f"Found {num_points} points in XML")
 
             # 現在のポート数と必要なポート数を比較
             current_ports = len(self.current_node.output_ports())
-            print(f"Current ports: {current_ports}, Required points: {num_points}")
+            logger.debug(f"Current ports: {current_ports}, Required points: {num_points}")
 
             # ポート数を調整
-            if isinstance(self.current_node, FooNode):
+            if isinstance(self.current_node, LinkNode):
                 while current_ports < num_points:
                     self.current_node._add_output()
                     current_ports += 1
-                    print(f"Added new port, total now: {current_ports}")
+                    logger.debug(f"Added new port, total now: {current_ports}")
 
                 while current_ports > num_points:
                     self.current_node.remove_output()
                     current_ports -= 1
-                    print(f"Removed port, total now: {current_ports}")
+                    logger.debug(f"Removed port, total now: {current_ports}")
 
                 # ポイントデータの更新
                 self.current_node.points = []
@@ -902,7 +918,7 @@ class InspectorWindow(QtWidgets.QWidget):
                             'type': point_type,
                             'xyz': xyz_values
                         })
-                        print(f"Added point {point_name}: {xyz_values}")
+                        logger.debug(f"Added point {point_name}: {xyz_values}")
 
                 # 累積座標の更新
                 self.current_node.cumulative_coords = []
@@ -914,21 +930,20 @@ class InspectorWindow(QtWidgets.QWidget):
 
                 # output_countを更新
                 self.current_node.output_count = len(self.current_node.points)
-                print(f"Updated output_count to: {self.current_node.output_count}")
+                logger.debug(f"Updated output_count to: {self.current_node.output_count}")
 
             # UI更新
             self.update_info(self.current_node)
-            print(f"XML file loaded: {file_name}")
+            logger.info(f"XML file loaded: {file_name}")
 
         except Exception as e:
-            print(f"Error loading XML: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error loading XML: {str(e)}")
+            logger.error(traceback.format_exc())
             
     def load_xml_with_stl(self):
         """XMLファイルとそれに対応するSTLファイルを読み込む"""
         if not self.current_node:
-            print("No node selected")
+            logger.warning("No node selected")
             return
 
         # XMLファイルの選択
@@ -949,7 +964,7 @@ class InspectorWindow(QtWidgets.QWidget):
             root = tree.getroot()
 
             if root.tag != 'urdf_part':
-                print("Invalid XML format: Root element should be 'urdf_part'")
+                logger.error("Invalid XML format: Root element should be 'urdf_part'")
                 return
 
             # リンク情報の処理
@@ -996,7 +1011,7 @@ class InspectorWindow(QtWidgets.QWidget):
                 for i, value in enumerate(rgb_values):
                     self.color_inputs[i].setText(f"{value}")
                 self.update_color_sample()
-                print(f"Set color: RGB({rgb_values[0]:.3f}, {rgb_values[1]:.3f}, {rgb_values[2]:.3f})")
+                logger.debug(f"Set color: RGB({rgb_values[0]:.3f}, {rgb_values[1]:.3f}, {rgb_values[2]:.3f})")
 
             # 回転軸の処理
             joint_elem = root.find('.//joint/axis')
@@ -1012,12 +1027,12 @@ class InspectorWindow(QtWidgets.QWidget):
                 else:  # X軸（デフォルト）
                     self.current_node.rotation_axis = 0
                     self.axis_group.button(0).setChecked(True)
-                print(f"Set rotation axis: {self.current_node.rotation_axis} from xyz: {axis_xyz}")
+                logger.debug(f"Set rotation axis: {self.current_node.rotation_axis} from xyz: {axis_xyz}")
 
             # ポイントの処理
             points = root.findall('point')
             num_points = len(points)
-            print(f"Found {num_points} points")
+            logger.debug(f"Found {num_points} points")
 
             # 現在のポート数と必要なポート数を比較
             current_ports = len(self.current_node.points)
@@ -1046,18 +1061,18 @@ class InspectorWindow(QtWidgets.QWidget):
                         'type': point_type,
                         'xyz': xyz_values
                     })
-                    print(f"Added point {point_name}: {xyz_values}")
+                    logger.debug(f"Added point {point_name}: {xyz_values}")
 
             # STLファイルの処理
             if os.path.exists(stl_path):
-                print(f"Found corresponding STL file: {stl_path}")
+                logger.info(f"Found corresponding STL file: {stl_path}")
                 self.current_node.stl_file = stl_path
                 if self.stl_viewer:
                     self.stl_viewer.load_stl_for_node(self.current_node)
                     # STLモデルに色を適用
                     self.apply_color_to_stl()
             else:
-                print(f"Warning: STL file not found: {stl_path}")
+                logger.warning(f"Warning: STL file not found: {stl_path}")
                 msg_box = QtWidgets.QMessageBox()
                 msg_box.setIcon(QtWidgets.QMessageBox.Warning)
                 msg_box.setWindowTitle("STL File Not Found")
@@ -1075,25 +1090,24 @@ class InspectorWindow(QtWidgets.QWidget):
                             self.stl_viewer.load_stl_for_node(self.current_node)
                             # STLモデルに色を適用
                             self.apply_color_to_stl()
-                        print(f"Manually selected STL file: {stl_file}")
+                        logger.info(f"Manually selected STL file: {stl_file}")
                     else:
-                        print("STL file selection cancelled")
+                        logger.info("STL file selection cancelled")
                 else:
-                    print("STL file loading skipped")
+                    logger.info("STL file loading skipped")
 
             # UI更新
             self.update_info(self.current_node)
-            print(f"XML file loaded: {xml_file}")
+            logger.info(f"XML file loaded: {xml_file}")
 
         except Exception as e:
-            print(f"Error loading XML with STL: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error loading XML with STL: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def apply_port_values(self):
         """Output Portsの値を適用"""
         if not self.current_node:
-            print("No node selected")
+            logger.warning("No node selected")
             return
 
         try:
@@ -1115,7 +1129,7 @@ class InspectorWindow(QtWidgets.QWidget):
                         # ノードのポイントデータを更新
                         if hasattr(self.current_node, 'points') and i < len(self.current_node.points):
                             self.current_node.points[i]['xyz'] = [x, y, z]
-                            print(
+                            logger.debug(
                                 f"Updated point {i+1} coordinates to: ({x:.6f}, {y:.6f}, {z:.6f})")
 
                             # 累積座標も更新
@@ -1129,23 +1143,22 @@ class InspectorWindow(QtWidgets.QWidget):
                                         0.0, 0.0, 0.0]
 
                     except ValueError:
-                        print(f"Invalid numerical input for point {i+1}")
+                        logger.warning(f"Invalid numerical input for point {i+1}")
                         continue
 
             # ノードの位置を再計算（必要な場合）
             if hasattr(self.current_node, 'graph') and self.current_node.graph:
                 self.current_node.graph.recalculate_all_positions()
-                print("Node positions recalculated")
+                logger.debug("Node positions recalculated")
 
             # STLビューアの更新
             if self.stl_viewer:
                 self.stl_viewer.vtkWidget.GetRenderWindow().Render()
-                print("3D view updated")
+                logger.debug("3D view updated")
 
         except Exception as e:
-            print(f"Error applying port values: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error applying port values: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def create_port_widget(self, port_number, x=0.0, y=0.0, z=0.0):
         """Output Port用のウィジェットを作成"""
@@ -1236,7 +1249,7 @@ class InspectorWindow(QtWidgets.QWidget):
                     actor.GetProperty().SetColor(*rgb_values)
                     self.stl_viewer.vtkWidget.GetRenderWindow().Render()
         except ValueError as e:
-            print(f"Error: Invalid color value - {str(e)}")
+            logger.error(f"Error: Invalid color value - {str(e)}")
 
     def update_color_sample(self):
         """カラーサンプルの表示を更新"""
@@ -1254,7 +1267,7 @@ class InspectorWindow(QtWidgets.QWidget):
         """Massless Decorationの状態を更新"""
         if self.current_node:
             self.current_node.massless_decoration = bool(state)
-            print(f"Set massless_decoration to {bool(state)} for node: {self.current_node.name()}")
+            logger.debug(f"Set massless_decoration to {bool(state)} for node: {self.current_node.name()}")
 
     def moveEvent(self, event):
         """ウィンドウ移動イベントの処理"""
@@ -1308,12 +1321,12 @@ class InspectorWindow(QtWidgets.QWidget):
 
         # 実際の質量から密度を逆算
         density = mass / total_volume
-        print(f"Calculated density: {density:.6f} from mass: {mass:.6f} and volume: {total_volume:.6f}")
+        logger.debug(f"Calculated density: {density:.6f} from mass: {mass:.6f} and volume: {total_volume:.6f}")
 
         # 慣性テンソルの初期化
         inertia_tensor = np.zeros((3, 3))
         num_cells = poly_data.GetNumberOfCells()
-        print(f"Processing {num_cells} triangles for inertia tensor calculation...")
+        logger.debug(f"Processing {num_cells} triangles for inertia tensor calculation...")
 
         for i in range(num_cells):
             cell = poly_data.GetCell(i)
@@ -1379,7 +1392,7 @@ class InspectorWindow(QtWidgets.QWidget):
         # 対角成分が正であることを確認
         for i in range(3):
             if inertia_tensor[i, i] <= 0:
-                print(f"Warning: Non-positive diagonal element detected at position ({i},{i})")
+                logger.warning(f"Warning: Non-positive diagonal element detected at position ({i},{i})")
                 inertia_tensor[i, i] = abs(inertia_tensor[i, i])
 
         return inertia_tensor
@@ -1390,7 +1403,7 @@ class InspectorWindow(QtWidgets.QWidget):
         InspectorWindowクラスのメソッド。
         """
         if not self.current_node or not hasattr(self.current_node, 'stl_file'):
-            print("No STL model is loaded.")
+            logger.warning("No STL model is loaded.")
             return None
 
         try:
@@ -1399,7 +1412,7 @@ class InspectorWindow(QtWidgets.QWidget):
                 actor = self.stl_viewer.stl_actors[self.current_node]
                 poly_data = actor.GetMapper().GetInput()
             else:
-                print("No STL actor found for current node")
+                logger.warning("No STL actor found for current node")
                 return None
 
             # 体積と質量を取得
@@ -1417,9 +1430,9 @@ class InspectorWindow(QtWidgets.QWidget):
             com_filter.Update()
             center_of_mass = np.array(com_filter.GetCenter())
 
-            print("\nCalculating inertia tensor for normal model...")
-            print(f"Volume: {volume:.6f}, Mass: {mass:.6f}")
-            print(f"Center of Mass: {center_of_mass}")
+            logger.info("Calculating inertia tensor for normal model...")
+            logger.debug(f"Volume: {volume:.6f}, Mass: {mass:.6f}")
+            logger.debug(f"Center of Mass: {center_of_mass}")
 
             # 慣性テンソルを計算
             inertia_tensor = self._calculate_base_inertia_tensor(
@@ -1429,26 +1442,30 @@ class InspectorWindow(QtWidgets.QWidget):
             urdf_inertia = self.format_inertia_for_urdf(inertia_tensor)
             if hasattr(self, 'inertia_tensor_input'):
                 self.inertia_tensor_input.setText(urdf_inertia)
-                print("\nInertia tensor has been updated in UI")
+                logger.info("Inertia tensor has been updated in UI")
             else:
-                print("Warning: inertia_tensor_input not found")
+                logger.warning("Warning: inertia_tensor_input not found")
 
             return inertia_tensor
 
         except Exception as e:
-            print(f"Error calculating inertia tensor: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Error calculating inertia tensor: {str(e)}")
+            logger.error(traceback.format_exc())
             return None
 
 
 class STLViewerWidget(QtWidgets.QWidget):
+    """
+    STLモデルを表示・操作するためのウィジェット
+    VTKを使用して3Dレンダリングを行います。
+    """
 
     def __init__(self, parent=None):
         super(STLViewerWidget, self).__init__(parent)
-        self.stl_actors = {}
-        self.transforms = {}
+        self.stl_actors = {}  # ノードごとのSTLアクターを保持
+        self.transforms = {}  # ノードごとの変換行列を保持
         self.base_connected_node = None
-        self.text_actors = []
+        self.text_actors = []  # テキストアクターのリスト
 
         layout = QtWidgets.QVBoxLayout(self)
         self.vtkWidget = QVTKRenderWindowInteractor(self)
@@ -1663,7 +1680,7 @@ class STLViewerWidget(QtWidgets.QWidget):
         self.renderer.ResetCameraClippingRange()
         self.vtkWidget.GetRenderWindow().Render()
 
-        print("Camera reset complete - All STL models fitted to view")
+        logger.info("Camera reset complete - All STL models fitted to view")
 
     def reset_view_to_fit(self):
         """すべてのSTLモデルが見えるようにビューをリセットして調整"""
@@ -1750,7 +1767,7 @@ class STLViewerWidget(QtWidgets.QWidget):
             return
 
         if node in self.stl_actors and node in self.transforms:
-            print(f"Updating transform for node {node.name()} to position {point_xyz}")
+            logger.debug(f"Updating transform for node {node.name()} to position {point_xyz}")
             transform = self.transforms[node]
             transform.Identity()
             transform.Translate(point_xyz[0], point_xyz[1], point_xyz[2])
@@ -1772,7 +1789,7 @@ class STLViewerWidget(QtWidgets.QWidget):
         else:
             # base_link以外のノードの場合のみ警告を表示
             if not isinstance(node, BaseLinkNode):
-                print(f"Warning: No STL actor or transform found for node {node.name()}")
+                logger.warning(f"Warning: No STL actor or transform found for node {node.name()}")
 
     def reset_stl_transform(self, node):
         """STLの位置をリセット"""
@@ -1781,7 +1798,7 @@ class STLViewerWidget(QtWidgets.QWidget):
             return
 
         if node in self.transforms:
-            print(f"Resetting transform for node {node.name()}")
+            logger.debug(f"Resetting transform for node {node.name()}")
             transform = self.transforms[node]
             transform.Identity()
             
@@ -1796,7 +1813,7 @@ class STLViewerWidget(QtWidgets.QWidget):
         else:
             # base_link以外のノードの場合のみ警告を表示
             if not isinstance(node, BaseLinkNode):
-                print(f"Warning: No transform found for node {node.name()}")
+                logger.warning(f"Warning: No transform found for node {node.name()}")
 
     def load_stl_for_node(self, node):
         """ノード用のSTLファイルを読み込む（色の適用を含む）"""
@@ -1805,7 +1822,7 @@ class STLViewerWidget(QtWidgets.QWidget):
             return
 
         if node.stl_file:
-            print(f"Loading STL for node: {node.name()}, file: {node.stl_file}")
+            logger.info(f"Loading STL for node: {node.name()}, file: {node.stl_file}")
             reader = vtk.vtkSTLReader()
             reader.SetFileName(node.stl_file)
 
@@ -1832,7 +1849,7 @@ class STLViewerWidget(QtWidgets.QWidget):
 
             self.reset_camera()
             self.vtkWidget.GetRenderWindow().Render()
-            print(f"STL file loaded and rendered: {node.stl_file}")
+            logger.info(f"STL file loaded and rendered: {node.stl_file}")
 
     def apply_color_to_node(self, node):
         """ノードのSTLモデルに色を適用"""
@@ -1844,7 +1861,7 @@ class STLViewerWidget(QtWidgets.QWidget):
             # 色の適用
             actor = self.stl_actors[node]
             actor.GetProperty().SetColor(*node.node_color)
-            print(f"Applied color to node {node.name()}: RGB({node.node_color[0]:.3f}, {node.node_color[1]:.3f}, {node.node_color[2]:.3f})")
+            logger.debug(f"Applied color to node {node.name()}: RGB({node.node_color[0]:.3f}, {node.node_color[1]:.3f}, {node.node_color[2]:.3f})")
             self.vtkWidget.GetRenderWindow().Render()
 
     def remove_stl_for_node(self, node):
@@ -1861,7 +1878,7 @@ class STLViewerWidget(QtWidgets.QWidget):
                 self.base_connected_node = None
                 
             self.vtkWidget.GetRenderWindow().Render()
-            print(f"Removed STL for node: {node.name()}")
+            logger.info(f"Removed STL for node: {node.name()}")
 
     def setup_camera(self):
         """カメラの初期設定"""
@@ -1906,7 +1923,7 @@ class STLViewerWidget(QtWidgets.QWidget):
     def update_rotation_axis(self, node, axis_id):
         """ノードの回転軸を更新"""
         try:
-            print(f"Updating rotation axis for node {node.name()} to axis {axis_id}")
+            logger.debug(f"Updating rotation axis for node {node.name()} to axis {axis_id}")
             
             if node in self.stl_actors and node in self.transforms:
                 transform = self.transforms[node]
@@ -1929,13 +1946,13 @@ class STLViewerWidget(QtWidgets.QWidget):
                 
                 # ビューを更新
                 self.vtkWidget.GetRenderWindow().Render()
-                print(f"Successfully updated rotation axis for node {node.name()}")
+                logger.debug(f"Successfully updated rotation axis for node {node.name()}")
             else:
-                print(f"No STL actor or transform found for node {node.name()}")
+                logger.warning(f"No STL actor or transform found for node {node.name()}")
                 
         except Exception as e:
-            print(f"Error updating rotation axis: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Error updating rotation axis: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def update_background(self, value):
         """背景色をスライダーの値に基づいて更新"""
@@ -1951,6 +1968,16 @@ class STLViewerWidget(QtWidgets.QWidget):
         QtGui.QDesktopServices.openUrl(url)
 
 class CustomNodeGraph(NodeGraph):
+    """
+    ノードグラフの管理を行うメインクラス
+    
+    主な機能:
+    - ノードの作成、削除、接続管理
+    - マウスイベントのハンドリング（範囲選択など）
+    - プロジェクトの保存・読み込み
+    - URDFのエクスポート
+    - ノード位置の自動計算とSTLビューアとの連携
+    """
     def __init__(self, stl_viewer):
         super(CustomNodeGraph, self).__init__()
         self.stl_viewer = stl_viewer
@@ -1961,7 +1988,7 @@ class CustomNodeGraph(NodeGraph):
 
         # ノードタイプの登録
         self.register_node(BaseLinkNode)
-        self.register_node(FooNode)
+        self.register_node(LinkNode)
 
         # ポート接続/切断のシグナルを接続
         self.port_connected.connect(self.on_port_connected)
@@ -1971,16 +1998,15 @@ class CustomNodeGraph(NodeGraph):
         try:
             # BaseLinkNodeの登録
             self.register_node(BaseLinkNode)
-            print(f"Registered node type: {BaseLinkNode.NODE_NAME}")
+            logger.info(f"Registered node type: {BaseLinkNode.NODE_NAME}")
 
-            # FooNodeの登録
-            self.register_node(FooNode)
-            print(f"Registered node type: {FooNode.NODE_NAME}")
+            # LinkNodeの登録
+            self.register_node(LinkNode)
+            logger.info(f"Registered node type: {LinkNode.NODE_NAME}")
 
         except Exception as e:
-            print(f"Error registering node types: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error registering node types: {str(e)}")
+            logger.error(traceback.format_exc())
 
         # 他の初期化コード...
         self._cleanup_handlers = []
@@ -2038,7 +2064,7 @@ class CustomNodeGraph(NodeGraph):
             self._original_handlers['press'](event)
 
         except Exception as e:
-            print(f"Error in mouse press: {str(e)}")
+            logger.error(f"Error in mouse press: {str(e)}")
 
     def custom_mouse_move(self, event):
         """カスタムマウス移動イベントハンドラ"""
@@ -2054,7 +2080,7 @@ class CustomNodeGraph(NodeGraph):
             self._original_handlers['move'](event)
 
         except Exception as e:
-            print(f"Error in mouse move: {str(e)}")
+            logger.error(f"Error in mouse move: {str(e)}")
 
     def custom_mouse_release(self, event):
         """カスタムマウスリリースイベントハンドラ"""
@@ -2088,12 +2114,12 @@ class CustomNodeGraph(NodeGraph):
             self._original_handlers['release'](event)
 
         except Exception as e:
-            print(f"Error in mouse release: {str(e)}")
+            logger.error(f"Error in mouse release: {str(e)}")
 
     def cleanup(self):
         """リソースのクリーンアップ"""
         try:
-            print("Starting cleanup process...")
+            logger.info("Starting cleanup process...")
             
             # イベントハンドラの復元
             if hasattr(self, '_view') and self._view:
@@ -2101,7 +2127,7 @@ class CustomNodeGraph(NodeGraph):
                     self._view.mousePressEvent = self._original_handlers['press']
                     self._view.mouseMoveEvent = self._original_handlers['move']
                     self._view.mouseReleaseEvent = self._original_handlers['release']
-                    print("Restored original event handlers")
+                    logger.debug("Restored original event handlers")
 
             # ラバーバンドのクリーンアップ
             try:
@@ -2110,9 +2136,9 @@ class CustomNodeGraph(NodeGraph):
                     self._rubber_band.setParent(None)
                     self._rubber_band.deleteLater()
                     self._rubber_band = None
-                    print("Cleaned up rubber band")
+                    logger.debug("Cleaned up rubber band")
             except Exception as e:
-                print(f"Warning: Rubber band cleanup - {str(e)}")
+                logger.warning(f"Warning: Rubber band cleanup - {str(e)}")
                 
             # ノードのクリーンアップ
             for node in self.all_nodes():
@@ -2123,7 +2149,7 @@ class CustomNodeGraph(NodeGraph):
                     # ノードの削除
                     self.remove_node(node)
                 except Exception as e:
-                    print(f"Error cleaning up node: {str(e)}")
+                    logger.error(f"Error cleaning up node: {str(e)}")
 
             # インスペクタウィンドウのクリーンアップ
             if hasattr(self, 'inspector_window') and self.inspector_window:
@@ -2131,9 +2157,9 @@ class CustomNodeGraph(NodeGraph):
                     self.inspector_window.close()
                     self.inspector_window.deleteLater()
                     self.inspector_window = None
-                    print("Cleaned up inspector window")
+                    logger.debug("Cleaned up inspector window")
                 except Exception as e:
-                    print(f"Error cleaning up inspector window: {str(e)}")
+                    logger.error(f"Error cleaning up inspector window: {str(e)}")
 
             # キャッシュのクリア
             try:
@@ -2141,14 +2167,14 @@ class CustomNodeGraph(NodeGraph):
                 self._selection_cache.clear()
                 if hasattr(self, '_cleanup_handlers'):
                     self._cleanup_handlers.clear()
-                print("Cleared caches")
+                logger.debug("Cleared caches")
             except Exception as e:
-                print(f"Error clearing caches: {str(e)}")
+                logger.error(f"Error clearing caches: {str(e)}")
 
-            print("Cleanup process completed")
+            logger.info("Cleanup process completed")
 
         except Exception as e:
-            print(f"Error during cleanup: {str(e)}")
+            logger.error(f"Error during cleanup: {str(e)}")
 
     def __del__(self):
         """デストラクタでクリーンアップを実行"""
@@ -2262,7 +2288,7 @@ class CustomNodeGraph(NodeGraph):
                 self._rubber_band.hide()
 
             except Exception as e:
-                print(f"Error in mouse release: {str(e)}")
+                logger.error(f"Error in mouse release: {str(e)}")
             finally:
                 # 状態をリセット
                 self._selection_start = None
@@ -2375,7 +2401,7 @@ class CustomNodeGraph(NodeGraph):
                 self._rubber_band.hide()
 
             except Exception as e:
-                print(f"Error in mouse release: {str(e)}")
+                logger.error(f"Error in mouse release: {str(e)}")
             finally:
                 # 状態をリセット
                 self._selection_start = None
@@ -2392,48 +2418,47 @@ class CustomNodeGraph(NodeGraph):
             base_node = self.create_node(node_type)
             base_node.set_name('base_link')
             base_node.set_pos(20, 20)
-            print("Base Link node created successfully")
+            logger.info("Base Link node created successfully")
             return base_node
         except Exception as e:
-            print(f"Error creating base link node: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error creating base link node: {str(e)}")
+            logger.error(traceback.format_exc())
             raise
 
     def register_nodes(self, node_classes):
         """複数のノードクラスを一度に登録"""
         for node_class in node_classes:
             self.register_node(node_class)
-            print(f"Registered node type: {node_class.__identifier__}")
+            logger.info(f"Registered node type: {node_class.__identifier__}")
 
     def on_port_connected(self, input_port, output_port):
         """ポートが接続された時の処理"""
-        print(f"**Connecting port: {output_port.name()}")
+        logger.debug(f"**Connecting port: {output_port.name()}")
         
         # 接続情報の出力
         parent_node = output_port.node()
         child_node = input_port.node()
-        print(f"Parent node: {parent_node.name()}, Child node: {child_node.name()}")
+        logger.debug(f"Parent node: {parent_node.name()}, Child node: {child_node.name()}")
         
         try:
             # 全ノードの位置を再計算
-            print("Recalculating all node positions after connection...")
+            logger.debug("Recalculating all node positions after connection...")
             self.recalculate_all_positions()
             
         except Exception as e:
-            print(f"Error in port connection: {str(e)}")
-            print(f"Detailed connection information:")
-            print(f"  Output port: {output_port.name()} from {parent_node.name()}")
-            print(f"  Input port: {input_port.name()} from {child_node.name()}")
-            traceback.print_exc()
+            logger.error(f"Error in port connection: {str(e)}")
+            logger.error(f"Detailed connection information:")
+            logger.error(f"  Output port: {output_port.name()} from {parent_node.name()}")
+            logger.error(f"  Input port: {input_port.name()} from {child_node.name()}")
+            logger.error(traceback.format_exc())
 
     def on_port_disconnected(self, input_port, output_port):
         """ポートが切断された時の処理"""
         child_node = input_port.node()  # 入力ポートを持つノードが子
         parent_node = output_port.node()  # 出力ポートを持つノードが親
         
-        print(f"\nDisconnecting ports:")
-        print(f"Parent node: {parent_node.name()}, Child node: {child_node.name()}")
+        logger.debug(f"\nDisconnecting ports:")
+        logger.debug(f"Parent node: {parent_node.name()}, Child node: {child_node.name()}")
         
         try:
             # 子ノードの位置をリセット
@@ -2442,20 +2467,20 @@ class CustomNodeGraph(NodeGraph):
             
             # STLの位置をリセット
             self.stl_viewer.reset_stl_transform(child_node)
-            print(f"Reset position for node: {child_node.name()}")
+            logger.debug(f"Reset position for node: {child_node.name()}")
 
             # 全ノードの位置を再計算
-            print("Recalculating all node positions after disconnection...")
+            logger.debug("Recalculating all node positions after disconnection...")
             self.recalculate_all_positions()
 
         except Exception as e:
-            print(f"Error in port disconnection: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Error in port disconnection: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def update_robot_name(self, text):
         """ロボット名を更新するメソッド"""
         self.robot_name = text
-        print(f"Robot name updated to: {text}")
+        logger.info(f"Robot name updated to: {text}")
 
         # 必要に応じて追加の処理
         # 例：ウィンドウタイトルの更新
@@ -2482,7 +2507,7 @@ class CustomNodeGraph(NodeGraph):
         # 入力フィールドが存在する場合は更新
         if hasattr(self, 'name_input') and self.name_input:
             self.name_input.setText(name)
-        print(f"Robot name set to: {name}")
+        logger.info(f"Robot name set to: {name}")
 
     def clean_robot_name(self, name):
         """ロボット名から_descriptionを除去"""
@@ -2503,7 +2528,16 @@ class CustomNodeGraph(NodeGraph):
         return False
 
     def export_urdf(self):
-        """URDFファイルをエクスポート"""
+        """
+        現在のノードグラフ構成からURDFファイルを生成・エクスポートするメソッド
+        
+        処理の流れ:
+        1. 保存先ディレクトリの選択と検証（*_descriptionフォルダ）
+        2. ロボット名の整合性チェック
+        3. URDFディレクトリの作成
+        4. マテリアル（色）定義の収集と書き出し
+        5. BaseLinkNodeをルートとしてツリー構造をトラバースし、リンクとジョイントを書き出し
+        """
         try:
             # # _descriptionを含むディレクトリを探すためのダイアログ
             # description_dir = QtWidgets.QFileDialog.getExistingDirectory(
@@ -2526,7 +2560,7 @@ class CustomNodeGraph(NodeGraph):
             )
 
             if not description_dir:
-                print("URDF export cancelled")
+                logger.info("URDF export cancelled")
                 return False
 
             # ディレクトリ名が正しいか確認
@@ -2573,9 +2607,9 @@ class CustomNodeGraph(NodeGraph):
             if not os.path.exists(urdf_dir):
                 try:
                     os.makedirs(urdf_dir)
-                    print(f"Created URDF directory: {urdf_dir}")
+                    logger.info(f"Created URDF directory: {urdf_dir}")
                 except Exception as e:
-                    print(f"Error creating URDF directory: {str(e)}")
+                    logger.error(f"Error creating URDF directory: {str(e)}")
                     return False
 
             # URDFファイルのパスを設定（クリーンな名前を使用）
@@ -2616,7 +2650,7 @@ class CustomNodeGraph(NodeGraph):
                 
                 f.write('</robot>\n')
 
-                print(f"URDF exported to: {urdf_file}")
+                logger.info(f"URDF exported to: {urdf_file}")
                 
                 QtWidgets.QMessageBox.information(
                     self.widget,
@@ -2628,8 +2662,8 @@ class CustomNodeGraph(NodeGraph):
 
         except Exception as e:
             error_msg = f"Error exporting URDF: {str(e)}"
-            print(error_msg)
-            traceback.print_exc()
+            logger.error(error_msg)
+            logger.error(traceback.format_exc())
             
             QtWidgets.QMessageBox.critical(
                 self.widget,
@@ -2849,11 +2883,11 @@ class CustomNodeGraph(NodeGraph):
                 self.inspector_window.raise_()
                 self.inspector_window.activateWindow()
 
-                print(f"Inspector window displayed for node: {node.name()}")
+                logger.debug(f"Inspector window displayed for node: {node.name()}")
 
         except Exception as e:
-            print(f"Error showing inspector: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Error showing inspector: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def remove_node(self, node):
         self.stl_viewer.remove_stl_for_node(node)
@@ -2867,10 +2901,10 @@ class CustomNodeGraph(NodeGraph):
         elif isinstance(pos, (tuple, list)):
             pos = QPointF(*pos)
 
-        print(f"Initial position for new node: {pos}")  # デバッグ情報
+        logger.debug(f"Initial position for new node: {pos}")
 
         adjusted_pos = self.find_non_overlapping_position(pos)
-        print(f"Adjusted position for new node: {adjusted_pos}")  # デバッグ情報
+        logger.debug(f"Adjusted position for new node: {adjusted_pos}")
 
         new_node.set_pos(adjusted_pos.x(), adjusted_pos.y())
 
@@ -2899,9 +2933,9 @@ class CustomNodeGraph(NodeGraph):
         
         new_pos = QPointF(new_x, new_y)
         
-        print(f"Positioning node {current_node_count + 1}")
-        print(f"Row: {row + 1}, Position in row: {position_in_row + 1}")
-        print(f"Position: ({new_pos.x()}, {new_pos.y()})")
+        logger.debug(f"Positioning node {current_node_count + 1}")
+        logger.debug(f"Row: {row + 1}, Position in row: {position_in_row + 1}")
+        logger.debug(f"Position: ({new_pos.x()}, {new_pos.y()})")
         
         # オーバーラップチェックと位置の微調整
         iteration = 0
@@ -2920,7 +2954,7 @@ class CustomNodeGraph(NodeGraph):
                 abs(pos1.y() - pos2.y()) < threshold)
         # デバッグ出力を条件付きに
         if overlap:
-            print(f"Overlap detected: pos1={pos1}, pos2={pos2}")
+            logger.debug(f"Overlap detected: pos1={pos1}, pos2={pos2}")
         return overlap
 
     def ensure_qpointf(self, pos):
@@ -2929,17 +2963,17 @@ class CustomNodeGraph(NodeGraph):
         elif isinstance(pos, (tuple, list)):
             return QPointF(*pos)
         else:
-            print(f"Warning: Unsupported position type: {type(pos)}")  # デバッグ情報
+            logger.warning(f"Unsupported position type: {type(pos)}")
             return QPointF(0, 0)  # デフォルト値を返す
 
     def _save_node_data(self, node, project_dir):
         """ノードデータの保存"""
-        print(f"\nStarting _save_node_data for node: {node.name()}")
+        logger.debug(f"Starting _save_node_data for node: {node.name()}")
         node_elem = ET.Element("node")
         
         try:
             # 基本情報
-            print(f"  Saving basic info for node: {node.name()}")
+            logger.debug(f"  Saving basic info for node: {node.name()}")
             ET.SubElement(node_elem, "id").text = hex(id(node))
             ET.SubElement(node_elem, "name").text = node.name()
             ET.SubElement(node_elem, "type").text = node.__class__.__name__
@@ -2947,30 +2981,30 @@ class CustomNodeGraph(NodeGraph):
             # output_count の保存
             if hasattr(node, 'output_count'):
                 ET.SubElement(node_elem, "output_count").text = str(node.output_count)
-                print(f"  Saved output_count: {node.output_count}")
+                logger.debug(f"  Saved output_count: {node.output_count}")
 
             # STLファイル情報
             if hasattr(node, 'stl_file') and node.stl_file:
-                print(f"  Processing STL file for node {node.name()}: {node.stl_file}")
+                logger.debug(f"  Processing STL file for node {node.name()}: {node.stl_file}")
                 stl_elem = ET.SubElement(node_elem, "stl_file")
                 
                 try:
                     stl_path = os.path.abspath(node.stl_file)
-                    print(f"    Absolute STL path: {stl_path}")
+                    logger.debug(f"    Absolute STL path: {stl_path}")
 
                     if self.meshes_dir and stl_path.startswith(self.meshes_dir):
                         rel_path = os.path.relpath(stl_path, self.meshes_dir)
                         stl_elem.set('base_dir', 'meshes')
                         stl_elem.text = os.path.join('meshes', rel_path)
-                        print(f"    Using meshes relative path: {rel_path}")
+                        logger.debug(f"    Using meshes relative path: {rel_path}")
                     else:
                         rel_path = os.path.relpath(stl_path, project_dir)
                         stl_elem.set('base_dir', 'project')
                         stl_elem.text = rel_path
-                        print(f"    Using project relative path: {rel_path}")
+                        logger.debug(f"    Using project relative path: {rel_path}")
 
                 except Exception as e:
-                    print(f"    Error processing STL file: {str(e)}")
+                    logger.error(f"    Error processing STL file: {str(e)}")
                     stl_elem.set('error', str(e))
 
             # 位置情報
@@ -2986,34 +3020,34 @@ class CustomNodeGraph(NodeGraph):
             # 物理プロパティ
             if hasattr(node, 'volume_value'):
                 ET.SubElement(node_elem, "volume").text = str(node.volume_value)
-                print(f"  Saved volume: {node.volume_value}")
+                logger.debug(f"  Saved volume: {node.volume_value}")
 
             if hasattr(node, 'mass_value'):
                 ET.SubElement(node_elem, "mass").text = str(node.mass_value)
-                print(f"  Saved mass: {node.mass_value}")
+                logger.debug(f"  Saved mass: {node.mass_value}")
 
             # 慣性テンソル
             if hasattr(node, 'inertia'):
                 inertia_elem = ET.SubElement(node_elem, "inertia")
                 for key, value in node.inertia.items():
                     inertia_elem.set(key, str(value))
-                print("  Saved inertia tensor")
+                logger.debug("  Saved inertia tensor")
 
             # 色情報
             if hasattr(node, 'node_color'):
                 color_elem = ET.SubElement(node_elem, "color")
                 color_elem.text = ' '.join(map(str, node.node_color))
-                print(f"  Saved color: {node.node_color}")
+                logger.debug(f"  Saved color: {node.node_color}")
 
             # 回転軸
             if hasattr(node, 'rotation_axis'):
                 ET.SubElement(node_elem, "rotation_axis").text = str(node.rotation_axis)
-                print(f"  Saved rotation axis: {node.rotation_axis}")
+                logger.debug(f"  Saved rotation axis: {node.rotation_axis}")
 
             # Massless Decoration
             if hasattr(node, 'massless_decoration'):
                 ET.SubElement(node_elem, "massless_decoration").text = str(node.massless_decoration)
-                print(f"  Saved massless_decoration: {node.massless_decoration}")
+                logger.debug(f"  Saved massless_decoration: {node.massless_decoration}")
 
             # ポイントデータ
             if hasattr(node, 'points'):
@@ -3024,7 +3058,7 @@ class CustomNodeGraph(NodeGraph):
                     ET.SubElement(point_elem, "name").text = point['name']
                     ET.SubElement(point_elem, "type").text = point['type']
                     ET.SubElement(point_elem, "xyz").text = ' '.join(map(str, point['xyz']))
-                print(f"  Saved {len(node.points)} points")
+                logger.debug(f"  Saved {len(node.points)} points")
 
             # 累積座標
             if hasattr(node, 'cumulative_coords'):
@@ -3033,24 +3067,24 @@ class CustomNodeGraph(NodeGraph):
                     coord_elem = ET.SubElement(coords_elem, "coord")
                     ET.SubElement(coord_elem, "point_index").text = str(coord['point_index'])
                     ET.SubElement(coord_elem, "xyz").text = ' '.join(map(str, coord['xyz']))
-                print(f"  Saved cumulative coordinates")
+                logger.debug(f"  Saved cumulative coordinates")
 
-            print(f"  Completed saving node data for: {node.name()}")
+            logger.debug(f"  Completed saving node data for: {node.name()}")
             return node_elem
 
         except Exception as e:
-            print(f"ERROR in _save_node_data for node {node.name()}: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"ERROR in _save_node_data for node {node.name()}: {str(e)}")
+            logger.error(traceback.format_exc())
             raise
 
     def save_project(self, file_path=None):
         """プロジェクトの保存（循環参照対策版）"""
-        print("\n=== Starting Project Save ===")
+        logger.info("=== Starting Project Save ===")
         try:
             # STLビューアの状態を一時的にバックアップ
             stl_viewer_state = None
             if hasattr(self, 'stl_viewer'):
-                print("Backing up STL viewer state...")
+                logger.debug("Backing up STL viewer state...")
                 stl_viewer_state = {
                     'actors': dict(self.stl_viewer.stl_actors),
                     'transforms': dict(self.stl_viewer.transforms)
@@ -3070,38 +3104,38 @@ class CustomNodeGraph(NodeGraph):
                     "XML Files (*.xml)"
                 )
                 if not file_path:
-                    print("Save cancelled by user")
+                    logger.info("Save cancelled by user")
                     return False
 
             self.project_dir = os.path.dirname(os.path.abspath(file_path))
             self.last_save_dir = self.project_dir
-            print(f"Project will be saved to: {file_path}")
+            logger.info(f"Project will be saved to: {file_path}")
 
             # XMLツリーの作成
-            print("Creating XML structure...")
+            logger.debug("Creating XML structure...")
             root = ET.Element("project")
             
             # ロボット名の保存
             robot_name_elem = ET.SubElement(root, "robot_name")
             robot_name_elem.text = self.robot_name
-            print(f"Saving robot name: {self.robot_name}")
+            logger.debug(f"Saving robot name: {self.robot_name}")
             
             if self.meshes_dir:
                 try:
                     meshes_rel_path = os.path.relpath(self.meshes_dir, self.project_dir)
                     ET.SubElement(root, "meshes_directory").text = meshes_rel_path
-                    print(f"Added meshes directory reference: {meshes_rel_path}")
+                    logger.debug(f"Added meshes directory reference: {meshes_rel_path}")
                 except ValueError:
                     ET.SubElement(root, "meshes_directory").text = self.meshes_dir
-                    print(f"Added absolute meshes path: {self.meshes_dir}")
+                    logger.debug(f"Added absolute meshes path: {self.meshes_dir}")
 
             # ノード情報の保存
-            print("\nSaving nodes...")
+            logger.debug("Saving nodes...")
             nodes_elem = ET.SubElement(root, "nodes")
             total_nodes = len(self.all_nodes())
             
             for i, node in enumerate(self.all_nodes(), 1):
-                print(f"Processing node {i}/{total_nodes}: {node.name()}")
+                logger.debug(f"Processing node {i}/{total_nodes}: {node.name()}")
                 # 一時的にSTLビューアの参照を削除
                 stl_viewer_backup = node.stl_viewer if hasattr(node, 'stl_viewer') else None
                 if hasattr(node, 'stl_viewer'):
@@ -3115,7 +3149,7 @@ class CustomNodeGraph(NodeGraph):
                     node.stl_viewer = stl_viewer_backup
 
             # 接続情報の保存
-            print("\nSaving connections...")
+            logger.debug("Saving connections...")
             connections = ET.SubElement(root, "connections")
             connection_count = 0
             
@@ -3128,24 +3162,24 @@ class CustomNodeGraph(NodeGraph):
                         ET.SubElement(conn, "to_node").text = connected_port.node().name()
                         ET.SubElement(conn, "to_port").text = connected_port.name()
                         connection_count += 1
-                        print(f"Added connection: {node.name()}.{port.name()} -> "
+                        logger.debug(f"Added connection: {node.name()}.{port.name()} -> "
                             f"{connected_port.node().name()}.{connected_port.name()}")
 
-            print(f"Total connections saved: {connection_count}")
+            logger.info(f"Total connections saved: {connection_count}")
 
             # ファイルの保存
-            print("\nWriting to file...")
+            logger.debug("Writing to file...")
             tree = ET.ElementTree(root)
             tree.write(file_path, encoding='utf-8', xml_declaration=True)
 
             # STLビューアの状態を復元
             if stl_viewer_state and hasattr(self, 'stl_viewer'):
-                print("Restoring STL viewer state...")
+                logger.debug("Restoring STL viewer state...")
                 self.stl_viewer.stl_actors = stl_viewer_state['actors']
                 self.stl_viewer.transforms = stl_viewer_state['transforms']
                 self.stl_viewer.vtkWidget.GetRenderWindow().Render()
 
-            print(f"\nProject successfully saved to: {file_path}")
+            logger.info(f"Project successfully saved to: {file_path}")
             
             QtWidgets.QMessageBox.information(
                 None,
@@ -3333,7 +3367,7 @@ class CustomNodeGraph(NodeGraph):
             if node_type == "BaseLinkNode":
                 node = self.create_base_link()
             else:
-                node = self.create_node('insilico.nodes.FooNode')
+                node = self.create_node('insilico.nodes.LinkNode')
 
             # 基本情報の設定
             name_elem = node_elem.find("name")
@@ -3342,7 +3376,7 @@ class CustomNodeGraph(NodeGraph):
                 print(f"Loading node: {name_elem.text}")
 
             # output_count の復元とポートの追加
-            if isinstance(node, FooNode):
+            if isinstance(node, LinkNode):
                 points_elem = node_elem.find("points")
                 if points_elem is not None:
                     points = points_elem.findall("point")
@@ -3585,7 +3619,7 @@ class CustomNodeGraph(NodeGraph):
                 
                 # 新しいノードを作成
                 new_node = self.create_node(
-                    'insilico.nodes.FooNode',
+                    'insilico.nodes.LinkNode',
                     name=f'Node_{len(self.all_nodes())}',
                     pos=QtCore.QPointF(0, 0)
                 )
@@ -3732,8 +3766,12 @@ class CustomNodeGraph(NodeGraph):
         print("\nImport process completed")
 
     def recalculate_all_positions(self):
-        """すべてのノードの位置を再計算"""
-        print("Starting position recalculation for all nodes...")
+        """
+        すべてのノードの位置を再計算するメソッド
+        BaseLinkNodeを起点として、接続関係とポイントデータに基づいて
+        各ノードの絶対座標（累積座標）を再帰的に計算します。
+        """
+        logger.debug("Starting position recalculation for all nodes...")
         
         try:
             # base_linkノードを探す
@@ -3744,32 +3782,39 @@ class CustomNodeGraph(NodeGraph):
                     break
             
             if not base_node:
-                print("Error: Base link node not found")
+                logger.error("Base link node not found")
                 return
             
             # 再帰的に位置を更新
             visited_nodes = set()
-            print(f"Starting from base node: {base_node.name()}")
+            logger.debug(f"Starting from base node: {base_node.name()}")
             self._recalculate_node_positions(base_node, [0, 0, 0], visited_nodes)
             
             # STLビューアの更新
             if hasattr(self, 'stl_viewer'):
                 self.stl_viewer.vtkWidget.GetRenderWindow().Render()
             
-            print("Position recalculation completed")
+            logger.debug("Position recalculation completed")
 
         except Exception as e:
-            print(f"Error during position recalculation: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Error during position recalculation: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def _recalculate_node_positions(self, node, parent_coords, visited):
-        """再帰的にノードの位置を計算"""
+        """
+        再帰的にノードの位置を計算する内部メソッド
+        
+        Args:
+            node: 現在処理中のノード
+            parent_coords: 親ノードの累積座標 [x, y, z]
+            visited: 訪問済みノードのセット（循環参照防止用）
+        """
         if node in visited:
             return
         visited.add(node)
         
-        print(f"\nProcessing node: {node.name()}")
-        print(f"Parent coordinates: {parent_coords}")
+        logger.debug(f"Processing node: {node.name()}")
+        logger.debug(f"Parent coordinates: {parent_coords}")
         
         try:
             # 出力ポートを処理
@@ -3782,16 +3827,16 @@ class CustomNodeGraph(NodeGraph):
                         point_data = node.points[port_idx]
                         point_xyz = point_data['xyz']
                         
-                        # 新しい位置を計算
+                        # 新しい位置を計算（親の座標 + 接続点の相対座標）
                         new_position = [
                             parent_coords[0] + point_xyz[0],
                             parent_coords[1] + point_xyz[1],
                             parent_coords[2] + point_xyz[2]
                         ]
                         
-                        print(f"Child node: {child_node.name()}")
-                        print(f"Point data: {point_xyz}")
-                        print(f"Calculated position: {new_position}")
+                        logger.debug(f"Child node: {child_node.name()}")
+                        logger.debug(f"Point data: {point_xyz}")
+                        logger.debug(f"Calculated position: {new_position}")
                         
                         # STL位置を更新
                         self.stl_viewer.update_stl_transform(child_node, new_position)
@@ -4511,7 +4556,7 @@ if __name__ == '__main__':
         buttons["Import XMLs"].clicked.connect(graph.import_xmls_from_folder)
         buttons["Add Node"].clicked.connect(
             lambda: graph.create_node(
-                'insilico.nodes.FooNode',
+                'insilico.nodes.LinkNode',
                 name=f'Node_{len(graph.all_nodes())}',
                 pos=QtCore.QPointF(0, 0)
             )
@@ -4573,7 +4618,7 @@ if __name__ == '__main__':
         # # ボタンのコネクション設定
         # buttons["Add Node"].clicked.connect(
         #     lambda: graph.create_node(
-        #         'insilico.nodes.FooNode',
+        #         'insilico.nodes.LinkNode',
         #         name=f'Node_{len(graph.all_nodes())}',
         #         pos=QtCore.QPointF(0, 0)
         #     )
