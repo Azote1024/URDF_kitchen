@@ -3,5 +3,10 @@ name = "urdf-kitchen"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = []
+requires-python = ">=3.11"
+dependencies = [
+    "nodegraphqt>=0.6.43",
+    "numpy>=2.3.5",
+    "pyside6>=6.10.1",
+    "vtk>=9.5.2",
+]
