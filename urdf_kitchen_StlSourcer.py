@@ -31,96 +31,10 @@ from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 from utils.urdf_kitchen_config import StlSourcerConfig as Config
 from utils.urdf_kitchen_logger import setup_logger
+from utils.ui_helpers import apply_dark_theme
+from utils.vtk_helpers import CustomInteractorStyle
 
 logger = setup_logger(__name__)
-
-class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
-    def __init__(self, parent=None):
-        super(CustomInteractorStyle, self).__init__()
-        self.parent = parent
-        self.AddObserver("CharEvent", self.on_char_event)
-        self.AddObserver("KeyPressEvent", self.on_key_press)
-
-    def on_char_event(self, obj, event):
-        key = self.GetInteractor().GetKeySym()
-        if key == "t":
-            logger.info("[T] Toggle wireframe.")
-            self.toggle_wireframe()
-        elif key == "r":
-            logger.info("[R] Reset camera.")
-            if self.parent:
-                self.parent.reset_camera()
-        elif key == "a":
-            logger.info("[A] Rotate 90° left.")
-            if self.parent:
-                self.parent.rotate_camera(90, 'yaw')
-        elif key == "d":
-            logger.info("[D] Rotate 90° right.")
-            if self.parent:
-                self.parent.rotate_camera(-90, 'yaw')
-        elif key == "w":
-            logger.info("[W] Rotate 90° up.")
-            if self.parent:
-                self.parent.rotate_camera(-90, 'pitch')
-        elif key == "s":
-            logger.info("[S] Rotate 90° down.")
-            if self.parent:
-                self.parent.rotate_camera(90, 'pitch')
-        elif key == "q":
-            logger.info("[Q] Rotate 90° counterclockwise.")
-            if self.parent:
-                self.parent.rotate_camera(90, 'roll')
-        elif key == "e":
-            logger.info("[E] Rotate 90° clockwise.")
-            if self.parent:
-                self.parent.rotate_camera(-90, 'roll')
-        else:
-            self.OnChar()
-
-    def on_key_press(self, obj, event):
-        key = self.GetInteractor().GetKeySym()
-        shift_pressed = self.GetInteractor().GetShiftKey()
-        ctrl_pressed = self.GetInteractor().GetControlKey()
-
-        step = 0.01  # 10mm
-        if shift_pressed and ctrl_pressed:
-            step = 0.0001  # 0.1mm
-        elif shift_pressed:
-            step = 0.001  # 1mm
-
-        if self.parent:
-            horizontal_axis, vertical_axis, screen_right, screen_up = self.parent.get_screen_axes()
-            for i, checkbox in enumerate(self.parent.point_checkboxes):
-                if checkbox.isChecked():
-                    if key == "Up":
-                        self.parent.move_point_screen(i, screen_up, step)
-                    elif key == "Down":
-                        self.parent.move_point_screen(i, screen_up, -step)
-                    elif key == "Left":
-                        self.parent.move_point_screen(i, screen_right, -step)
-                    elif key == "Right":
-                        self.parent.move_point_screen(i, screen_right, step)
-
-        self.OnKeyPress()
-
-    def toggle_wireframe(self):
-        if not self.GetInteractor():
-            return
-        renderer = self.GetInteractor().GetRenderWindow().GetRenderers().GetFirstRenderer()
-        if not renderer:
-            return
-        actors = renderer.GetActors()
-        actors.InitTraversal()
-        actor = actors.GetNextItem()
-        while actor:
-            if not actor.GetUserTransform():
-                if actor.GetProperty().GetRepresentation() == vtk.VTK_SURFACE:
-                    actor.GetProperty().SetRepresentationToWireframe()
-                else:
-                    actor.GetProperty().SetRepresentationToSurface()
-            actor = actors.GetNextItem()
-        self.GetInteractor().GetRenderWindow().Render()
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -144,7 +58,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
-        self.set_ui_style()
+        # テーマの適用 (共通化された関数を使用)
+        apply_dark_theme(self)
 
         # ファイル名表示用のラベル
         self.file_name_label = QLabel("File: No file loaded")
@@ -207,56 +122,8 @@ class MainWindow(QMainWindow):
 
         self.vtk_widget.GetRenderWindow().AddObserver("ModifiedEvent", self.update_all_points_size)
 
-    def set_ui_style(self):
-        self.setStyleSheet(f"""
-            QMainWindow {{
-                background-color: {Config.STYLE_MAIN_BG};
-            }}
-            QLabel {{
-                color: {Config.STYLE_LABEL_COLOR};
-            }}
-            QPushButton {{
-                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                                stop:0 {Config.STYLE_BUTTON_GRADIENT_START}, stop:1 {Config.STYLE_BUTTON_GRADIENT_END});
-                color: {Config.STYLE_BUTTON_TEXT};
-                border: 1px solid {Config.STYLE_BUTTON_BORDER};
-                border-radius: 5px;
-                padding: 3px 8px;
-                min-height: 20px;
-            }}
-            QPushButton:hover {{
-                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                                stop:0 #6a6a6a, stop:1 #4a4a4a);
-            }}
-            QPushButton:pressed {{
-                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                                stop:0 {Config.STYLE_BUTTON_GRADIENT_END}, stop:1 {Config.STYLE_BUTTON_GRADIENT_START});
-                padding-top: 6px;
-                padding-bottom: 4px;
-            }}
-            QLineEdit {{
-                background-color: {Config.STYLE_INPUT_BG};
-                color: {Config.STYLE_INPUT_TEXT};
-                border: 1px solid {Config.STYLE_INPUT_BORDER};
-                border-radius: 3px;
-                padding: 2px;
-            }}
-            QCheckBox {{
-                color: {Config.STYLE_CHECKBOX_TEXT};
-            }}
-            QCheckBox::indicator {{
-                width: 13px;
-                height: 13px;
-            }}
-            QCheckBox::indicator:unchecked {{
-                border: 1px solid {Config.STYLE_INPUT_BORDER};
-                background-color: {Config.STYLE_MAIN_BG};
-            }}
-            QCheckBox::indicator:checked {{
-                border: 1px solid {Config.STYLE_INPUT_BORDER};
-                background-color: {Config.STYLE_CHECKBOX_CHECKED};
-            }}
-        """)
+    # set_ui_style は apply_dark_theme に置き換えられたため削除
+
 
     def setup_points_ui(self, layout):
         points_layout = QGridLayout()
