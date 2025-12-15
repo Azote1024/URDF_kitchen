@@ -1,0 +1,296 @@
+2025-12-15 22:48:48,931 - Assembler - WARNING - Base Link node cannot have input ports
+2025-12-15 22:48:48,935 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,007 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,007 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,017 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,017 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,018 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:48:49,018 - Assembler - INFO - Added output port 'out_4' with zero coordinates
+2025-12-15 22:48:49,018 - Assembler - INFO - Added output port 'out_5' with zero coordinates
+2025-12-15 22:48:49,018 - Assembler - INFO - Added output port 'out_6' with zero coordinates
+2025-12-15 22:48:49,018 - Assembler - INFO - Added output port 'out_7' with zero coordinates
+2025-12-15 22:48:49,018 - Assembler - INFO - Added output port 'out_8' with zero coordinates
+2025-12-15 22:48:49,024 - Assembler - ERROR - Error registering node types: node type "insilico.nodes.BaseLinkNode" already registered to "<class 'urdf_kitchen_Assembler.BaseLinkNode'>"! Please specify a new plugin class name or __identifier__.
+2025-12-15 22:48:49,025 - Assembler - ERROR - Traceback (most recent call last):
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\urdf_kitchen_Assembler.py", line 1973, in __init__
+    self.register_node(BaseLinkNode)
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\.venv\Lib\site-packages\NodeGraphQt\base\graph.py", line 1174, in register_node
+    self._node_factory.register_node(node, alias)
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\.venv\Lib\site-packages\NodeGraphQt\base\factory.py", line 77, in register_node
+    raise NodeRegistrationError(
+NodeGraphQt.errors.NodeRegistrationError: node type "insilico.nodes.BaseLinkNode" already registered to "<class 'urdf_kitchen_Assembler.BaseLinkNode'>"! Please specify a new plugin class name or __identifier__.
+
+2025-12-15 22:48:49,027 - Assembler - INFO - Base Link node created successfully
+2025-12-15 22:48:49,027 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,027 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,027 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,027 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,036 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,037 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,038 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,039 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,041 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,041 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,042 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,042 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,042 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,042 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,048 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,048 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,048 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,051 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,051 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,051 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,051 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,056 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,057 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,057 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,057 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,057 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,057 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,057 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,057 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,057 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,067 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,068 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,068 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,068 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,068 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:48:49,068 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,073 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,074 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,075 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,076 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,076 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:48:49,076 - Assembler - INFO - Added output port 'out_4' with zero coordinates
+2025-12-15 22:48:49,077 - Assembler - INFO - Added output port 'out_5' with zero coordinates
+2025-12-15 22:48:49,077 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,077 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,077 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,077 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:48:49,077 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,077 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,084 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:48:49,086 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,921 - Assembler - WARNING - Base Link node cannot have input ports
+2025-12-15 22:50:24,922 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,924 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,924 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,925 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,925 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,925 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:50:24,927 - Assembler - INFO - Added output port 'out_4' with zero coordinates
+2025-12-15 22:50:24,927 - Assembler - INFO - Added output port 'out_5' with zero coordinates
+2025-12-15 22:50:24,927 - Assembler - INFO - Added output port 'out_6' with zero coordinates
+2025-12-15 22:50:24,927 - Assembler - INFO - Added output port 'out_7' with zero coordinates
+2025-12-15 22:50:24,927 - Assembler - INFO - Added output port 'out_8' with zero coordinates
+2025-12-15 22:50:24,931 - Assembler - ERROR - Error registering node types: node type "insilico.nodes.BaseLinkNode" already registered to "<class 'urdf_kitchen_Assembler.BaseLinkNode'>"! Please specify a new plugin class name or __identifier__.
+2025-12-15 22:50:24,932 - Assembler - ERROR - Traceback (most recent call last):
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\urdf_kitchen_Assembler.py", line 1973, in __init__
+    self.register_node(BaseLinkNode)
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\.venv\Lib\site-packages\NodeGraphQt\base\graph.py", line 1174, in register_node
+    self._node_factory.register_node(node, alias)
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\.venv\Lib\site-packages\NodeGraphQt\base\factory.py", line 77, in register_node
+    raise NodeRegistrationError(
+NodeGraphQt.errors.NodeRegistrationError: node type "insilico.nodes.BaseLinkNode" already registered to "<class 'urdf_kitchen_Assembler.BaseLinkNode'>"! Please specify a new plugin class name or __identifier__.
+
+2025-12-15 22:50:24,939 - Assembler - INFO - Base Link node created successfully
+2025-12-15 22:50:24,939 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,941 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,942 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,943 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,944 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,945 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,947 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,947 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,949 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,950 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,951 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,952 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,953 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,954 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,955 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,957 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,959 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,960 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,961 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,963 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,964 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,964 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,965 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,966 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,967 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,969 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,970 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,971 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,972 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,973 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,975 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,976 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,977 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,978 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,979 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:50:24,979 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,981 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,982 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,982 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,983 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,984 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:50:24,984 - Assembler - INFO - Added output port 'out_4' with zero coordinates
+2025-12-15 22:50:24,984 - Assembler - INFO - Added output port 'out_5' with zero coordinates
+2025-12-15 22:50:24,985 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,987 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,987 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,988 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:50:24,989 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,990 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,992 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:50:24,993 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,772 - Assembler - WARNING - Base Link node cannot have input ports
+2025-12-15 22:52:07,775 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,777 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,777 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,778 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,778 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,778 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:52:07,779 - Assembler - INFO - Added output port 'out_4' with zero coordinates
+2025-12-15 22:52:07,779 - Assembler - INFO - Added output port 'out_5' with zero coordinates
+2025-12-15 22:52:07,779 - Assembler - INFO - Added output port 'out_6' with zero coordinates
+2025-12-15 22:52:07,779 - Assembler - INFO - Added output port 'out_7' with zero coordinates
+2025-12-15 22:52:07,780 - Assembler - INFO - Added output port 'out_8' with zero coordinates
+2025-12-15 22:52:07,784 - Assembler - ERROR - Error registering node types: node type "insilico.nodes.BaseLinkNode" already registered to "<class 'urdf_kitchen_Assembler.BaseLinkNode'>"! Please specify a new plugin class name or __identifier__.
+2025-12-15 22:52:07,785 - Assembler - ERROR - Traceback (most recent call last):
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\urdf_kitchen_Assembler.py", line 1973, in __init__
+    self.register_node(BaseLinkNode)
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\.venv\Lib\site-packages\NodeGraphQt\base\graph.py", line 1174, in register_node
+    self._node_factory.register_node(node, alias)
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\.venv\Lib\site-packages\NodeGraphQt\base\factory.py", line 77, in register_node
+    raise NodeRegistrationError(
+NodeGraphQt.errors.NodeRegistrationError: node type "insilico.nodes.BaseLinkNode" already registered to "<class 'urdf_kitchen_Assembler.BaseLinkNode'>"! Please specify a new plugin class name or __identifier__.
+
+2025-12-15 22:52:07,788 - Assembler - INFO - Base Link node created successfully
+2025-12-15 22:52:07,788 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,788 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,788 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,788 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,796 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,797 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,797 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,797 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,797 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,797 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,797 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,797 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,797 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,806 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,807 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,808 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,810 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,811 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,812 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,814 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,815 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,815 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,817 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,817 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,817 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,817 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,817 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,817 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,817 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,824 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,824 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,827 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,828 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,830 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,830 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:52:07,830 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,830 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,830 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,830 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,830 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,830 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:52:07,830 - Assembler - INFO - Added output port 'out_4' with zero coordinates
+2025-12-15 22:52:07,830 - Assembler - INFO - Added output port 'out_5' with zero coordinates
+2025-12-15 22:52:07,836 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,837 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,837 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,839 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:52:07,839 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,839 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,839 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:52:07,839 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,290 - Assembler - WARNING - Base Link node cannot have input ports
+2025-12-15 22:56:57,292 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,294 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,294 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,296 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,296 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,296 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:56:57,297 - Assembler - INFO - Added output port 'out_4' with zero coordinates
+2025-12-15 22:56:57,297 - Assembler - INFO - Added output port 'out_5' with zero coordinates
+2025-12-15 22:56:57,297 - Assembler - INFO - Added output port 'out_6' with zero coordinates
+2025-12-15 22:56:57,298 - Assembler - INFO - Added output port 'out_7' with zero coordinates
+2025-12-15 22:56:57,298 - Assembler - INFO - Added output port 'out_8' with zero coordinates
+2025-12-15 22:56:57,302 - Assembler - ERROR - Error registering node types: node type "insilico.nodes.BaseLinkNode" already registered to "<class 'urdf_kitchen_Assembler.BaseLinkNode'>"! Please specify a new plugin class name or __identifier__.
+2025-12-15 22:56:57,303 - Assembler - ERROR - Traceback (most recent call last):
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\urdf_kitchen_Assembler.py", line 1976, in __init__
+    self.register_node(BaseLinkNode)
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\.venv\Lib\site-packages\NodeGraphQt\base\graph.py", line 1174, in register_node
+    self._node_factory.register_node(node, alias)
+  File "C:\Users\nitro\Documents\GitHub\URDF_kitchen\.venv\Lib\site-packages\NodeGraphQt\base\factory.py", line 77, in register_node
+    raise NodeRegistrationError(
+NodeGraphQt.errors.NodeRegistrationError: node type "insilico.nodes.BaseLinkNode" already registered to "<class 'urdf_kitchen_Assembler.BaseLinkNode'>"! Please specify a new plugin class name or __identifier__.
+
+2025-12-15 22:56:57,311 - Assembler - INFO - Base Link node created successfully
+2025-12-15 22:56:57,312 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,314 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,314 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,315 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,317 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,318 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,319 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,320 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,322 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,324 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,325 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,326 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,327 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,328 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,330 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,331 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,332 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,334 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,335 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,337 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,338 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,339 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,341 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,342 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,343 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,344 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,345 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,347 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,348 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,350 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,351 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,353 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,356 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,357 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,357 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:56:57,358 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,359 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,360 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,361 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,362 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,362 - Assembler - INFO - Added output port 'out_3' with zero coordinates
+2025-12-15 22:56:57,362 - Assembler - INFO - Added output port 'out_4' with zero coordinates
+2025-12-15 22:56:57,364 - Assembler - INFO - Added output port 'out_5' with zero coordinates
+2025-12-15 22:56:57,364 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,365 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,367 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,368 - Assembler - INFO - Added output port 'out_2' with zero coordinates
+2025-12-15 22:56:57,368 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,370 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,372 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 22:56:57,374 - Assembler - INFO - Added output port 'out_1' with zero coordinates

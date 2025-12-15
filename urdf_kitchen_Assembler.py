@@ -107,13 +107,16 @@ class BaseLinkNode(BaseNode):
         """指定した名前の出力ポートが存在するかチェック"""
         return name in [p.name() for p in self.output_ports()]
 
-class FooNode(BaseNode):
-    """General purpose node class"""
+class LinkNode(BaseNode):
+    """
+    ロボットのリンクを表す汎用ノードクラス
+    BaseLink以外の全てのリンクはこのクラスのインスタンスとして表現されます。
+    """
     __identifier__ = 'insilico.nodes'
-    NODE_NAME = 'FooNode'
+    NODE_NAME = 'LinkNode'
     
     def __init__(self):
-        super(FooNode, self).__init__()
+        super(LinkNode, self).__init__()
         self.add_input('in', color=(180, 80, 0))
         
         self.output_count = 0
@@ -147,7 +150,7 @@ class FooNode(BaseNode):
         if self.output_count < Config.MAX_OUTPUT_PORTS:  # 最大8ポートまで
             self.output_count += 1
             port_name = f'out_{self.output_count}'
-            super(FooNode, self).add_output(port_name)
+            super(LinkNode, self).add_output(port_name)
             
             # ポイントデータの初期化
             if not hasattr(self, 'points'):
@@ -239,6 +242,16 @@ class FooNode(BaseNode):
             logger.error("Error: graph does not have show_inspector method")
 
 class InspectorWindow(QtWidgets.QWidget):
+    """
+    ノードの詳細情報を表示・編集するためのインスペクタウィンドウ
+    
+    機能:
+    - ノード名の編集
+    - 物理プロパティ（質量、体積、慣性モーメント）の表示
+    - STLファイルの関連付けと表示設定
+    - 接続ポイント（ポート）の座標編集
+    - ノードカラーの変更
+    """
     
     def __init__(self, parent=None, stl_viewer=None):
         super(InspectorWindow, self).__init__(parent)
@@ -880,7 +893,7 @@ class InspectorWindow(QtWidgets.QWidget):
             logger.debug(f"Current ports: {current_ports}, Required points: {num_points}")
 
             # ポート数を調整
-            if isinstance(self.current_node, FooNode):
+            if isinstance(self.current_node, LinkNode):
                 while current_ports < num_points:
                     self.current_node._add_output()
                     current_ports += 1
@@ -1442,13 +1455,17 @@ class InspectorWindow(QtWidgets.QWidget):
 
 
 class STLViewerWidget(QtWidgets.QWidget):
+    """
+    STLモデルを表示・操作するためのウィジェット
+    VTKを使用して3Dレンダリングを行います。
+    """
 
     def __init__(self, parent=None):
         super(STLViewerWidget, self).__init__(parent)
-        self.stl_actors = {}
-        self.transforms = {}
+        self.stl_actors = {}  # ノードごとのSTLアクターを保持
+        self.transforms = {}  # ノードごとの変換行列を保持
         self.base_connected_node = None
-        self.text_actors = []
+        self.text_actors = []  # テキストアクターのリスト
 
         layout = QtWidgets.QVBoxLayout(self)
         self.vtkWidget = QVTKRenderWindowInteractor(self)
@@ -1951,6 +1968,16 @@ class STLViewerWidget(QtWidgets.QWidget):
         QtGui.QDesktopServices.openUrl(url)
 
 class CustomNodeGraph(NodeGraph):
+    """
+    ノードグラフの管理を行うメインクラス
+    
+    主な機能:
+    - ノードの作成、削除、接続管理
+    - マウスイベントのハンドリング（範囲選択など）
+    - プロジェクトの保存・読み込み
+    - URDFのエクスポート
+    - ノード位置の自動計算とSTLビューアとの連携
+    """
     def __init__(self, stl_viewer):
         super(CustomNodeGraph, self).__init__()
         self.stl_viewer = stl_viewer
@@ -1961,7 +1988,7 @@ class CustomNodeGraph(NodeGraph):
 
         # ノードタイプの登録
         self.register_node(BaseLinkNode)
-        self.register_node(FooNode)
+        self.register_node(LinkNode)
 
         # ポート接続/切断のシグナルを接続
         self.port_connected.connect(self.on_port_connected)
@@ -1973,9 +2000,9 @@ class CustomNodeGraph(NodeGraph):
             self.register_node(BaseLinkNode)
             logger.info(f"Registered node type: {BaseLinkNode.NODE_NAME}")
 
-            # FooNodeの登録
-            self.register_node(FooNode)
-            logger.info(f"Registered node type: {FooNode.NODE_NAME}")
+            # LinkNodeの登録
+            self.register_node(LinkNode)
+            logger.info(f"Registered node type: {LinkNode.NODE_NAME}")
 
         except Exception as e:
             logger.error(f"Error registering node types: {str(e)}")
@@ -2501,7 +2528,16 @@ class CustomNodeGraph(NodeGraph):
         return False
 
     def export_urdf(self):
-        """URDFファイルをエクスポート"""
+        """
+        現在のノードグラフ構成からURDFファイルを生成・エクスポートするメソッド
+        
+        処理の流れ:
+        1. 保存先ディレクトリの選択と検証（*_descriptionフォルダ）
+        2. ロボット名の整合性チェック
+        3. URDFディレクトリの作成
+        4. マテリアル（色）定義の収集と書き出し
+        5. BaseLinkNodeをルートとしてツリー構造をトラバースし、リンクとジョイントを書き出し
+        """
         try:
             # # _descriptionを含むディレクトリを探すためのダイアログ
             # description_dir = QtWidgets.QFileDialog.getExistingDirectory(
@@ -3331,7 +3367,7 @@ class CustomNodeGraph(NodeGraph):
             if node_type == "BaseLinkNode":
                 node = self.create_base_link()
             else:
-                node = self.create_node('insilico.nodes.FooNode')
+                node = self.create_node('insilico.nodes.LinkNode')
 
             # 基本情報の設定
             name_elem = node_elem.find("name")
@@ -3340,7 +3376,7 @@ class CustomNodeGraph(NodeGraph):
                 print(f"Loading node: {name_elem.text}")
 
             # output_count の復元とポートの追加
-            if isinstance(node, FooNode):
+            if isinstance(node, LinkNode):
                 points_elem = node_elem.find("points")
                 if points_elem is not None:
                     points = points_elem.findall("point")
@@ -3583,7 +3619,7 @@ class CustomNodeGraph(NodeGraph):
                 
                 # 新しいノードを作成
                 new_node = self.create_node(
-                    'insilico.nodes.FooNode',
+                    'insilico.nodes.LinkNode',
                     name=f'Node_{len(self.all_nodes())}',
                     pos=QtCore.QPointF(0, 0)
                 )
@@ -3730,8 +3766,12 @@ class CustomNodeGraph(NodeGraph):
         print("\nImport process completed")
 
     def recalculate_all_positions(self):
-        """すべてのノードの位置を再計算"""
-        print("Starting position recalculation for all nodes...")
+        """
+        すべてのノードの位置を再計算するメソッド
+        BaseLinkNodeを起点として、接続関係とポイントデータに基づいて
+        各ノードの絶対座標（累積座標）を再帰的に計算します。
+        """
+        logger.debug("Starting position recalculation for all nodes...")
         
         try:
             # base_linkノードを探す
@@ -3742,32 +3782,39 @@ class CustomNodeGraph(NodeGraph):
                     break
             
             if not base_node:
-                print("Error: Base link node not found")
+                logger.error("Base link node not found")
                 return
             
             # 再帰的に位置を更新
             visited_nodes = set()
-            print(f"Starting from base node: {base_node.name()}")
+            logger.debug(f"Starting from base node: {base_node.name()}")
             self._recalculate_node_positions(base_node, [0, 0, 0], visited_nodes)
             
             # STLビューアの更新
             if hasattr(self, 'stl_viewer'):
                 self.stl_viewer.vtkWidget.GetRenderWindow().Render()
             
-            print("Position recalculation completed")
+            logger.debug("Position recalculation completed")
 
         except Exception as e:
-            print(f"Error during position recalculation: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Error during position recalculation: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def _recalculate_node_positions(self, node, parent_coords, visited):
-        """再帰的にノードの位置を計算"""
+        """
+        再帰的にノードの位置を計算する内部メソッド
+        
+        Args:
+            node: 現在処理中のノード
+            parent_coords: 親ノードの累積座標 [x, y, z]
+            visited: 訪問済みノードのセット（循環参照防止用）
+        """
         if node in visited:
             return
         visited.add(node)
         
-        print(f"\nProcessing node: {node.name()}")
-        print(f"Parent coordinates: {parent_coords}")
+        logger.debug(f"Processing node: {node.name()}")
+        logger.debug(f"Parent coordinates: {parent_coords}")
         
         try:
             # 出力ポートを処理
@@ -3780,16 +3827,16 @@ class CustomNodeGraph(NodeGraph):
                         point_data = node.points[port_idx]
                         point_xyz = point_data['xyz']
                         
-                        # 新しい位置を計算
+                        # 新しい位置を計算（親の座標 + 接続点の相対座標）
                         new_position = [
                             parent_coords[0] + point_xyz[0],
                             parent_coords[1] + point_xyz[1],
                             parent_coords[2] + point_xyz[2]
                         ]
                         
-                        print(f"Child node: {child_node.name()}")
-                        print(f"Point data: {point_xyz}")
-                        print(f"Calculated position: {new_position}")
+                        logger.debug(f"Child node: {child_node.name()}")
+                        logger.debug(f"Point data: {point_xyz}")
+                        logger.debug(f"Calculated position: {new_position}")
                         
                         # STL位置を更新
                         self.stl_viewer.update_stl_transform(child_node, new_position)
@@ -4509,7 +4556,7 @@ if __name__ == '__main__':
         buttons["Import XMLs"].clicked.connect(graph.import_xmls_from_folder)
         buttons["Add Node"].clicked.connect(
             lambda: graph.create_node(
-                'insilico.nodes.FooNode',
+                'insilico.nodes.LinkNode',
                 name=f'Node_{len(graph.all_nodes())}',
                 pos=QtCore.QPointF(0, 0)
             )
@@ -4571,7 +4618,7 @@ if __name__ == '__main__':
         # # ボタンのコネクション設定
         # buttons["Add Node"].clicked.connect(
         #     lambda: graph.create_node(
-        #         'insilico.nodes.FooNode',
+        #         'insilico.nodes.LinkNode',
         #         name=f'Node_{len(graph.all_nodes())}',
         #         pos=QtCore.QPointF(0, 0)
         #     )

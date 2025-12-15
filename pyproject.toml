@@ -8,5 +8,6 @@ dependencies = [
     "nodegraphqt>=0.6.43",
     "numpy>=2.3.5",
     "pyside6>=6.10.1",
+    "pytest>=9.0.2",
     "vtk>=9.5.2",
 ]
