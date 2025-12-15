@@ -294,3 +294,7 @@ NodeGraphQt.errors.NodeRegistrationError: node type "insilico.nodes.BaseLinkNode
 2025-12-15 22:56:57,370 - Assembler - INFO - Added output port 'out_1' with zero coordinates
 2025-12-15 22:56:57,372 - Assembler - INFO - Added output port 'out_1' with zero coordinates
 2025-12-15 22:56:57,374 - Assembler - INFO - Added output port 'out_1' with zero coordinates
+2025-12-15 23:53:48,105 - utils.math_utils - WARNING - Negative diagonal elements detected in inertia tensor!
+2025-12-15 23:53:48,105 - utils.math_utils - INFO - Fixing negative diagonal element: 0.0 -> 0.0
+2025-12-15 23:53:48,107 - utils.math_utils - INFO - Fixing negative diagonal element: 0.0 -> 0.0
+2025-12-15 23:53:48,107 - utils.math_utils - INFO - Fixing negative diagonal element: 0.0 -> 0.0

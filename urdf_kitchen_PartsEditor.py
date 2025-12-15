@@ -42,6 +42,9 @@ from PySide6.QtGui import QTextOption, QColor, QPalette
 
 from utils.urdf_kitchen_config import PartsEditorConfig as Config
 from utils.urdf_kitchen_logger import setup_logger
+from utils.ui_helpers import apply_dark_theme
+from utils.vtk_helpers import CustomInteractorStyle
+from utils.math_utils import calculate_inertia_tensor, format_inertia_for_urdf
 
 logger = setup_logger(__name__)
 
@@ -50,232 +53,6 @@ logger = setup_logger(__name__)
 # pip install vtk
 # pip install NodeGraphQt
 
-def apply_dark_theme(self):
-    """シックなダークテーマを適用"""
-    # パレットの設定
-    palette = self.palette()
-    # メインウィンドウ背景：柔らかいダークグレー
-    palette.setColor(QPalette.Window, QColor(*Config.PALETTE_WINDOW))
-    # テキスト：ダークグレー
-    palette.setColor(QPalette.WindowText, QColor(*Config.PALETTE_WINDOW_TEXT))
-    # 入力フィールド背景：オフホワイト
-    palette.setColor(QPalette.Base, QColor(*Config.PALETTE_BASE))
-    palette.setColor(QPalette.AlternateBase, QColor(*Config.PALETTE_ALTERNATE_BASE))
-    # ツールチップ
-    palette.setColor(QPalette.ToolTipBase, QColor(*Config.PALETTE_TOOLTIP_BASE))
-    palette.setColor(QPalette.ToolTipText, QColor(*Config.PALETTE_TOOLTIP_TEXT))
-    # 通常のテキスト：ダークグレー
-    palette.setColor(QPalette.Text, QColor(*Config.PALETTE_TEXT))
-    # ボタン
-    palette.setColor(QPalette.Button, QColor(*Config.PALETTE_BUTTON))
-    palette.setColor(QPalette.ButtonText, QColor(*Config.PALETTE_BUTTON_TEXT))
-    # 選択時のハイライト
-    palette.setColor(QPalette.Highlight, QColor(*Config.PALETTE_HIGHLIGHT))
-    palette.setColor(QPalette.HighlightedText, QColor(*Config.PALETTE_HIGHLIGHTED_TEXT))
-    self.setPalette(palette)
-
-    # VTKビューポートの背景色をシックなグレーに設定
-    if hasattr(self, 'renderer'):
-        self.renderer.SetBackground(*Config.VTK_BACKGROUND_COLOR)
-
-    # 追加のスタイル設定
-    self.setStyleSheet(f"""
-        QMainWindow {{
-            background-color: {Config.STYLE_MAIN_BG};
-        }}
-        QPushButton {{
-            background-color: {Config.STYLE_BUTTON_BG};
-            border: 1px solid {Config.STYLE_BUTTON_BORDER};
-            border-radius: 2px;
-            padding: 2px 2px;
-            color: {Config.STYLE_BUTTON_TEXT};
-            min-width: 80px;
-        }}
-        QPushButton:hover {{
-            background-color: {Config.STYLE_BUTTON_HOVER};
-            border: 1px solid #AAAAAA;
-        }}
-        QPushButton:pressed {{
-            background-color: {Config.STYLE_BUTTON_PRESSED};
-            padding-top: 4px;
-            padding-bottom: 4px;
-        }}
-        QLineEdit {{
-            background-color: {Config.STYLE_INPUT_BG};
-            border: 1px solid {Config.STYLE_INPUT_BORDER};
-            color: {Config.STYLE_INPUT_TEXT};
-            padding: 1px;  # パディングを小さく
-            border-radius: 2px;
-            min-height: 12px;  # 最小の高さを設定
-            max-height: 12px;  # 最大の高さを設定
-        }}
-        QLineEdit:focus {{
-            border: 1px solid #999999;
-            background-color: #FFFFFF;
-        }}
-        QLabel {{
-            color: {Config.STYLE_INPUT_TEXT};
-        }}
-        QCheckBox {{
-            color: {Config.STYLE_INPUT_TEXT};
-            spacing: 10px;
-        }}
-        QCheckBox::indicator {{
-            width: 12px;
-            height: 12px;
-            background-color: {Config.STYLE_INPUT_BG};
-            border: 1px solid {Config.STYLE_INPUT_BORDER};
-            border-radius: 2px;
-        }}
-        QCheckBox::indicator:checked {{
-            background-color: #808487;
-            border: 1px solid #666666;
-        }}
-        QRadioButton {{
-            color: {Config.STYLE_INPUT_TEXT};
-            spacing: 2px;
-        }}
-        QRadioButton::indicator {{
-            width: 12px;
-            height: 12px;
-            background-color: {Config.STYLE_INPUT_BG};
-            border: 1px solid {Config.STYLE_INPUT_BORDER};
-            border-radius: 2px;
-        }}
-        QRadioButton::indicator:checked {{
-            background-color: #808487;
-            border: 1px solid #666666;
-        }}
-    """)
-
-    # ファイルダイアログのスタイル
-    self.setStyleSheet(self.styleSheet() + f"""
-        QFileDialog {{
-            background-color: {Config.STYLE_MAIN_BG};
-        }}
-        QFileDialog QLabel {{
-            color: {Config.STYLE_INPUT_TEXT};
-        }}
-        QFileDialog QLineEdit {{
-            background-color: {Config.STYLE_INPUT_BG};
-            color: {Config.STYLE_BUTTON_TEXT};
-            border: 1px solid {Config.STYLE_INPUT_BORDER};
-        }}
-        QFileDialog QPushButton {{
-            background-color: {Config.STYLE_BUTTON_BG};
-            color: {Config.STYLE_BUTTON_TEXT};
-            border: 1px solid {Config.STYLE_BUTTON_BORDER};
-        }}
-        QFileDialog QTreeView {{
-            background-color: {Config.STYLE_INPUT_BG};
-            color: {Config.STYLE_BUTTON_TEXT};
-        }}
-        QFileDialog QComboBox {{
-            background-color: {Config.STYLE_INPUT_BG};
-            color: {Config.STYLE_BUTTON_TEXT};
-            border: 1px solid {Config.STYLE_INPUT_BORDER};
-        }}
-    """)
-
-
-class CustomInteractorStyle(vtk.vtkInteractorStyleTrackballCamera):
-    def __init__(self, parent=None):
-        super(CustomInteractorStyle, self).__init__()
-        self.parent = parent
-        self.AddObserver("CharEvent", self.on_char_event)
-        self.AddObserver("KeyPressEvent", self.on_key_press)
-
-    def on_char_event(self, obj, event):
-        key = self.GetInteractor().GetKeySym()
-        if key == "t":
-            logger.info("[T] Toggle wireframe.")
-            self.toggle_wireframe()
-        elif key == "r":
-            logger.info("[R] Reset camera.")
-            if self.parent:
-                self.parent.reset_camera()
-        elif key == "a":
-            logger.info("[A] Rotate 90° left.")
-            if self.parent:
-                self.parent.rotate_camera(90, 'yaw')
-        elif key == "d":
-            logger.info("[D] Rotate 90° right.")
-            if self.parent:
-                self.parent.rotate_camera(-90, 'yaw')
-        elif key == "w":
-            logger.info("[W] Rotate 90° up.")
-            if self.parent:
-                self.parent.rotate_camera(-90, 'pitch')
-        elif key == "s":
-            logger.info("[S] Rotate 90° down.")
-            if self.parent:
-                self.parent.rotate_camera(90, 'pitch')
-        elif key == "q":
-            logger.info("[Q] Rotate 90° counterclockwise.")
-            if self.parent:
-                self.parent.rotate_camera(90, 'roll')
-        elif key == "e":
-            logger.info("[E] Rotate 90° clockwise.")
-            if self.parent:
-                self.parent.rotate_camera(-90, 'roll')
-        else:
-            self.OnChar()
-            
-    def on_key_press(self, obj, event):
-        key = self.GetInteractor().GetKeySym()
-        shift_pressed = self.GetInteractor().GetShiftKey()
-        ctrl_pressed = self.GetInteractor().GetControlKey()
-        
-        step = 0.01  # デフォルトのステップ (10mm)
-        if shift_pressed and ctrl_pressed:
-            step = 0.0001  # 0.1mm
-        elif shift_pressed:
-            step = 0.001  # 1mm
-        
-        if self.parent:
-            horizontal_axis, vertical_axis, screen_right, screen_up = self.parent.get_screen_axes()
-            for i, checkbox in enumerate(self.parent.point_checkboxes):
-                if checkbox.isChecked():
-                    if key == "Up":
-                        self.parent.move_point_screen(i, screen_up, step)
-                    elif key == "Down":
-                        self.parent.move_point_screen(i, screen_up, -step)
-                    elif key == "Left":
-                        self.parent.move_point_screen(i, screen_right, -step)
-                    elif key == "Right":
-                        self.parent.move_point_screen(i, screen_right, step)
-        
-        self.OnKeyPress()
-        
-    def toggle_wireframe(self):
-        if not self.GetInteractor():
-            return
-        renderer = self.GetInteractor().GetRenderWindow().GetRenderers().GetFirstRenderer()
-        if not renderer:
-            return
-        actors = renderer.GetActors()
-        actors.InitTraversal()
-        actor = actors.GetNextItem()
-
-        while actor:
-            # STLアクターの場合のみ表示モードを切り替える
-            if actor == self.parent.stl_actor:
-                if actor.GetProperty().GetRepresentation() == vtk.VTK_SURFACE:
-                    actor.GetProperty().SetRepresentationToWireframe()
-                else:
-                    actor.GetProperty().SetRepresentationToSurface()
-            actor = actors.GetNextItem()
-        
-        self.GetInteractor().GetRenderWindow().Render()
-    
-    def on_mouse_move(self, obj, event):
-        if self.parent:
-            x, y = self.GetInteractor().GetEventPosition()
-            for i, checkbox in enumerate(self.parent.point_checkboxes):
-                if checkbox.isChecked():
-                    self.parent.update_point_position(i, x, y)
-        self.OnMouseMove()
-    
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -353,6 +130,9 @@ class MainWindow(QMainWindow):
         self.render_window.Render()
         self.render_window_interactor.Initialize()
         self.vtk_widget.GetRenderWindow().AddObserver("ModifiedEvent", self.update_all_points_size)
+        
+        # テーマの適用
+        apply_dark_theme(self)
 
     def setup_ui(self):
         self.setup_buttons()
@@ -1093,7 +873,7 @@ class MainWindow(QMainWindow):
             None: エラーが発生した場合
         """
         if not hasattr(self, 'stl_actor') or not self.stl_actor:
-            print("No STL model is loaded.")
+            logger.warning("No STL model is loaded.")
             return None
 
         # ポリデータを取得
@@ -1104,95 +884,38 @@ class MainWindow(QMainWindow):
         mass_properties.SetInputData(poly_data)
         mass_properties.Update()
         volume = mass_properties.GetVolume()
-        density = float(self.density_input.text())
+        try:
+            density = float(self.density_input.text())
+        except ValueError:
+            logger.error("Invalid density input")
+            return None
+            
         mass = volume * density
-        print(f"Volume: {volume:.6f}, Density: {density:.6f}, Mass: {mass:.6f}")
+        logger.info(f"Volume: {volume:.6f}, Density: {density:.6f}, Mass: {mass:.6f}")
 
         # UIまたは計算から重心を取得
         center_of_mass = self.get_center_of_mass()
         if center_of_mass is None:
-            print("Error getting center of mass")
+            logger.error("Error getting center of mass")
             return None
 
-        # 慣性テンソルの初期化
-        inertia_tensor = np.zeros((3, 3))
+        # 共通ユーティリティを使用して慣性テンソルを計算
+        inertia_tensor = calculate_inertia_tensor(poly_data, density, center_of_mass)
         
-        # 全三角形に対して処理
-        num_cells = poly_data.GetNumberOfCells()
-        print(f"Processing {num_cells} triangles...")
-        
-        for i in range(num_cells):
-            cell = poly_data.GetCell(i)
-            if cell.GetCellType() == vtk.VTK_TRIANGLE:
-                # 三角形の頂点を取得（重心を原点とした座標系で）
-                points = [np.array(cell.GetPoints().GetPoint(j)) - center_of_mass for j in range(3)]
-                
-                # 三角形の面積と法線ベクトルを計算
-                v1 = points[1] - points[0]
-                v2 = points[2] - points[0]
-                normal = np.cross(v1, v2)
-                area = 0.5 * np.linalg.norm(normal)
-                
-                if area < 1e-10:  # 面積が極めて小さい三角形は無視
-                    continue
+        if inertia_tensor is None:
+            return None
 
-                # 三角形の重心
-                tri_centroid = np.mean(points, axis=0)
-
-                # 三角形の局所的な慣性テンソルを計算
-                covariance = np.zeros((3, 3))
-                for p in points:
-                    r_squared = np.sum(p * p)
-                    for a in range(3):
-                        for b in range(3):
-                            if a == b:
-                                # 対角成分
-                                covariance[a, a] += (r_squared - p[a] * p[a]) * area / 12.0
-                            else:
-                                # 非対角成分
-                                covariance[a, b] -= (p[a] * p[b]) * area / 12.0
-
-                # 平行軸の定理を適用
-                r_squared = np.sum(tri_centroid * tri_centroid)
-                for a in range(3):
-                    for b in range(3):
-                        if a == b:
-                            inertia_tensor[a, a] += covariance[a, a] + area * (r_squared - tri_centroid[a] * tri_centroid[a])
-                        else:
-                            inertia_tensor[a, b] += covariance[a, b] - area * tri_centroid[a] * tri_centroid[b]
-
-        # 密度を考慮して最終的な慣性テンソルを計算
-        inertia_tensor *= density
-
-        # 数値誤差の処理
-        threshold = 1e-10
-        for i in range(3):
-            for j in range(3):
-                if abs(inertia_tensor[i, j]) < threshold:
-                    inertia_tensor[i, j] = 0.0
-
-        # 対称性の確認と強制
-        inertia_tensor = 0.5 * (inertia_tensor + inertia_tensor.T)
-        
         # 慣性テンソルの値を表示
-        print("\nCalculated Inertia Tensor:")
-        print(inertia_tensor)
-
-        # 対角成分が正であることを確認
-        if not all(inertia_tensor[i, i] > 0 for i in range(3)):
-            print("\nWarning: Negative diagonal elements detected in inertia tensor!")
-            for i in range(3):
-                if inertia_tensor[i, i] <= 0:
-                    print(f"Fixing negative diagonal element: {inertia_tensor[i, i]} -> {abs(inertia_tensor[i, i])}")
-                    inertia_tensor[i, i] = abs(inertia_tensor[i, i])
+        logger.info("\nCalculated Inertia Tensor:")
+        logger.info(inertia_tensor)
 
         # URDFフォーマットに変換してUIを更新
-        urdf_inertia = self.format_inertia_for_urdf(inertia_tensor)
+        urdf_inertia = format_inertia_for_urdf(inertia_tensor)
         if hasattr(self, 'inertia_tensor_input'):
             self.inertia_tensor_input.setText(urdf_inertia)
-            print("\nInertia tensor has been updated in UI")
+            logger.info("Inertia tensor has been updated in UI")
         else:
-            print("Warning: inertia_tensor_input not found")
+            logger.warning("inertia_tensor_input not found")
 
         return inertia_tensor
 
@@ -1327,30 +1050,7 @@ class MainWindow(QMainWindow):
             print(f"Error calculating center of mass: {e}")
             return None
 
-    def format_inertia_for_urdf(self, inertia_tensor):
-        """
-        慣性テンソルをURDFフォーマットの文字列に変換する
-        
-        Args:
-            inertia_tensor (numpy.ndarray): 3x3の慣性テンソル行列
-        
-        Returns:
-            str: URDF形式の慣性テンソル文字列
-        """
-        # 値が非常に小さい場合は0とみなす閾値
-        threshold = 1e-10
 
-        # 対角成分
-        ixx = inertia_tensor[0][0] if abs(inertia_tensor[0][0]) > threshold else 0
-        iyy = inertia_tensor[1][1] if abs(inertia_tensor[1][1]) > threshold else 0
-        izz = inertia_tensor[2][2] if abs(inertia_tensor[2][2]) > threshold else 0
-        
-        # 非対角成分
-        ixy = inertia_tensor[0][1] if abs(inertia_tensor[0][1]) > threshold else 0
-        ixz = inertia_tensor[0][2] if abs(inertia_tensor[0][2]) > threshold else 0
-        iyz = inertia_tensor[1][2] if abs(inertia_tensor[1][2]) > threshold else 0
-
-        return f'<inertia ixx="{ixx:.8f}" ixy="{ixy:.8f}" ixz="{ixz:.8f}" iyy="{iyy:.8f}" iyz="{iyz:.8f}" izz="{izz:.8f}"/>'
 
 
     def apply_camera_rotation(self, camera):
@@ -1950,11 +1650,20 @@ class MainWindow(QMainWindow):
             transform_filter.SetTransform(transform)
             transform_filter.Update()
 
-            # 法線の修正
+            # 頂点の巻き順を反転（法線の向きを修正）
+            reverse_sense = vtk.vtkReverseSense()
+            reverse_sense.SetInputConnection(transform_filter.GetOutputPort())
+            reverse_sense.ReverseCellsOn()
+            reverse_sense.ReverseNormalsOn()
+            reverse_sense.Update()
+
+            # 法線の再計算
+            # AutoOrientNormalsは複雑な形状や複数ボディの場合に誤判定する可能性があるため無効化し、
+            # ReverseSenseによる決定論的な反転結果を信頼する
             normal_generator = vtk.vtkPolyDataNormals()
-            normal_generator.SetInputData(transform_filter.GetOutput())
-            normal_generator.ConsistencyOn()
-            normal_generator.AutoOrientNormalsOn()
+            normal_generator.SetInputConnection(reverse_sense.GetOutputPort())
+            normal_generator.ConsistencyOff()      # 入力の整合性を信頼する
+            normal_generator.AutoOrientNormalsOff() # 自動判定を無効化
             normal_generator.ComputeCellNormalsOn()
             normal_generator.ComputePointNormalsOn()
             normal_generator.Update()
@@ -2033,7 +1742,7 @@ class MainWindow(QMainWindow):
             <origin xyz="{center_of_mass[0]:.6f} {center_of_mass[1]:.6f} {center_of_mass[2]:.6f}"/>
             <mass value="{mass:.12f}"/>
             <volume value="{volume:.12f}"/>
-            {self.format_inertia_for_urdf(inertia_tensor)}
+            {format_inertia_for_urdf(inertia_tensor)}
         </inertial>
         <center_of_mass>{center_of_mass[0]:.6f} {center_of_mass[1]:.6f} {center_of_mass[2]:.6f}</center_of_mass>
     </link>"""
@@ -2699,11 +2408,20 @@ class MainWindow(QMainWindow):
                         transformer.SetTransform(transform)
                         transformer.Update()
 
-                        # 法線の修正
+                        # 頂点の巻き順を反転（法線の向きを修正）
+                        reverse_sense = vtk.vtkReverseSense()
+                        reverse_sense.SetInputConnection(transformer.GetOutputPort())
+                        reverse_sense.ReverseCellsOn()
+                        reverse_sense.ReverseNormalsOn()
+                        reverse_sense.Update()
+
+                        # 法線の再計算
+                        # AutoOrientNormalsは複雑な形状や複数ボディの場合に誤判定する可能性があるため無効化し、
+                        # ReverseSenseによる決定論的な反転結果を信頼する
                         normal_generator = vtk.vtkPolyDataNormals()
-                        normal_generator.SetInputData(transformer.GetOutput())
-                        normal_generator.ConsistencyOn()
-                        normal_generator.AutoOrientNormalsOn()
+                        normal_generator.SetInputConnection(reverse_sense.GetOutputPort())
+                        normal_generator.ConsistencyOff()      # 入力の整合性を信頼する
+                        normal_generator.AutoOrientNormalsOff() # 自動判定を無効化
                         normal_generator.ComputeCellNormalsOn()
                         normal_generator.ComputePointNormalsOn()
                         normal_generator.Update()
@@ -2772,7 +2490,7 @@ class MainWindow(QMainWindow):
             <origin xyz="{center_of_mass[0]:.6f} {center_of_mass[1]:.6f} {center_of_mass[2]:.6f}"/>
             <mass value="{mass:.12f}"/>
             <volume value="{volume:.12f}"/>
-            {self.format_inertia_for_urdf(inertia_tensor)}
+            {format_inertia_for_urdf(inertia_tensor)}
         </inertial>
         <center_of_mass>{center_of_mass[0]:.6f} {center_of_mass[1]:.6f} {center_of_mass[2]:.6f}</center_of_mass>
     </link>"""
