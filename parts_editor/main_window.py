@@ -43,8 +43,10 @@ from PySide6.QtGui import QTextOption, QColor, QPalette
 from utils.urdf_kitchen_config import PartsEditorConfig as Config
 from utils.urdf_kitchen_logger import setup_logger
 from utils.ui_helpers import apply_dark_theme
-from utils.vtk_helpers import CustomInteractorStyle
 from utils.math_utils import calculate_inertia_tensor, format_inertia_for_urdf
+
+from .ui_setup import PartsEditorUI
+from .vtk_viewer import VTKViewer
 
 logger = setup_logger(__name__)
 
@@ -53,18 +55,18 @@ logger = setup_logger(__name__)
 # pip install vtk
 # pip install NodeGraphQt
 
-class MainWindow(QMainWindow):
+class PartsEditorMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(Config.WINDOW_TITLE)
         self.setGeometry(*Config.WINDOW_GEOMETRY)
-        self.camera_rotation = [0, 0, 0]  # [yaw, pitch, roll]
-        self.absolute_origin = [0, 0, 0]  # 大原点の設定
-        self.initial_camera_position = Config.INITIAL_CAMERA_POSITION  # 初期カメラ位置
-        self.initial_camera_focal_point = Config.INITIAL_CAMERA_FOCAL_POINT  # 初期焦点
-        self.initial_camera_view_up = Config.INITIAL_CAMERA_VIEW_UP  # 初期の上方向
+        self.camera_rotation = [0, 0, 0]
+        self.absolute_origin = [0, 0, 0]
+        self.initial_camera_position = Config.INITIAL_CAMERA_POSITION
+        self.initial_camera_focal_point = Config.INITIAL_CAMERA_FOCAL_POINT
+        self.initial_camera_view_up = Config.INITIAL_CAMERA_VIEW_UP
 
-        self.num_points = Config.NUM_POINTS  # ポイントの数を8に設定
+        self.num_points = Config.NUM_POINTS
         self.point_coords = [list(self.absolute_origin) for _ in range(self.num_points)]
         self.point_actors = [None] * self.num_points
         self.point_checkboxes = []
@@ -72,43 +74,24 @@ class MainWindow(QMainWindow):
         self.point_set_buttons = []
         self.point_reset_buttons = []
 
-        self.com_actor = None  # 重心アクターを追跡するための新しい属性
+        self.com_actor = None
 
-        central_widget = QWidget(self)
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)  # 垂直方向のレイアウトに変更
+        # Initialize UI
+        self.ui = PartsEditorUI(self)
+        self.ui.setup_ui()
 
-        # ファイル名表示用のラベル
-        self.file_name_label = QLabel("File:")
-        self.file_name_value = QLabel("No file loaded")
-        self.file_name_value.setWordWrap(True)  # 長いパスの場合に折り返すように設定
-        file_name_layout = QVBoxLayout()  # 垂直レイアウトに変更
-        file_name_layout.addWidget(self.file_name_label)
-        file_name_layout.addWidget(self.file_name_value)
-        main_layout.addLayout(file_name_layout)
-
-        # 水平方向のレイアウトを作成（左側のUIと右側の3D表示用）
-        content_layout = QHBoxLayout()
-        main_layout.addLayout(content_layout)
-
-        # 左側のUI用ウィジェットとレイアウト
-        left_widget = QWidget()
-        self.left_layout = QVBoxLayout(left_widget)
-        content_layout.addWidget(left_widget, 1)  # stretch factorを1に設定
-
-        # 右側のVTKウィジェット
-        self.vtk_widget = QVTKRenderWindowInteractor(central_widget)
-        content_layout.addWidget(self.vtk_widget, 4)  # stretch factorを4に設定（UIより広いスペースを確保）
-        
-        self.setup_ui()
-        self.setup_vtk()
-        self.add_instruction_text()  # 説明テキストを追加
+        # Initialize VTK
+        self.vtk_viewer = VTKViewer(self)
+        self.vtk_viewer.setup_vtk()
+        self.vtk_viewer.setup_camera()
+        self.vtk_viewer.add_axes()
+        self.vtk_viewer.add_instruction_text()
 
         self.model_bounds = None
         self.stl_actor = None
         self.current_rotation = 0
 
-        self.stl_center = list(self.absolute_origin)  # STLモデルの中心を大原点に初期化
+        self.stl_center = list(self.absolute_origin)
 
         self.animation_timer = QTimer()
         self.animation_timer.timeout.connect(self.animate_rotation)
@@ -119,313 +102,16 @@ class MainWindow(QMainWindow):
 
         self.rotation_types = {'yaw': 0, 'pitch': 1, 'roll': 2}
 
-        self.setup_camera()
-        self.axes_widget = self.add_axes_widget() # 座標軸の追加
-        self.add_axes()  # 既存のadd_axesメソッドも保持
+        self.axes_widget = self.vtk_viewer.add_axes_widget()
         
-        self.render_window.Render()
-        self.render_window_interactor.Initialize()
-        self.add_axes()
+        self.vtk_viewer.render_window.Render()
+        self.vtk_viewer.render_window_interactor.Initialize()
+        # TODO: This observer causes the application to close immediately. 
+        # The update_all_points_size method might be causing infinite recursion or other issues.
+        # self.vtk_widget.GetRenderWindow().AddObserver("ModifiedEvent", self.update_all_points_size)
         
-        self.render_window.Render()
-        self.render_window_interactor.Initialize()
-        self.vtk_widget.GetRenderWindow().AddObserver("ModifiedEvent", self.update_all_points_size)
-        
-        # テーマの適用
         apply_dark_theme(self)
 
-    def setup_ui(self):
-        self.setup_buttons()
-        self.setup_stl_properties_ui()
-        self.setup_points_ui()
-
-    def setup_buttons(self):
-        button_layout = QVBoxLayout()  # メインの垂直レイアウト
-        button_layout.setSpacing(10)  # ボタン間の間隔を5ピクセルに設定（デフォルトは約10）
-
-        # first_row をラップするための QWidget を作成
-        first_row_widget = QWidget()
-        first_row_layout = QHBoxLayout()
-        first_row_layout.setContentsMargins(0, 0, 0, 0)  # マージンを0に設定
-        first_row_layout.setSpacing(5)  # ボタン間のスペーシングを5ピクセルに設定
-
-        # # 最初の行の水平レイアウト
-        first_row = QHBoxLayout()
-        
-        # # 最初の行を追加
-        button_layout.addLayout(first_row)
-
-        # Load STLボタン
-        self.load_button = QPushButton("Load STL")
-        self.load_button.clicked.connect(self.load_stl_file)
-        first_row.addWidget(self.load_button)
-
-        # Load XMLボタン
-        self.load_xml_button = QPushButton("ImportXML")
-        self.load_xml_button.clicked.connect(self.load_xml_file)
-        first_row.addWidget(self.load_xml_button)
-
-        # first_row_layout を first_row_widget にセット
-        first_row_widget.setLayout(first_row_layout)
-
-        # Load STL with XMLボタン
-        self.load_stl_xml_button = QPushButton("Load STL with XML")
-        self.load_stl_xml_button.clicked.connect(self.load_stl_with_xml)
-        button_layout.addWidget(self.load_stl_xml_button)
-
-        # スペーサーを追加
-        spacer = QWidget()
-        spacer.setFixedHeight(0)  # 20ピクセルの空間を作る
-        button_layout.addWidget(spacer)
-        
-        # Export用のボタンを縦に配置
-        self.export_urdf_button = QPushButton("Export XML")
-        self.export_urdf_button.clicked.connect(self.export_urdf)
-        button_layout.addWidget(self.export_urdf_button)
-        
-        # ミラーボタン
-        self.export_mirror_button = QPushButton("Export mirror STL with XML")
-        self.export_mirror_button.clicked.connect(self.export_mirror_stl_xml)
-        button_layout.addWidget(self.export_mirror_button)
-
-        # 一括変換ボタン
-        self.bulk_convert_button = QPushButton("Batch convert \"l_\" to \"r_\" in /meshes")
-        self.bulk_convert_button.clicked.connect(self.bulk_convert_l_to_r)
-        button_layout.addWidget(self.bulk_convert_button)
-
-        # Export STLボタン
-        self.export_stl_button = QPushButton("Save STL (Point 1 as origin)")
-        self.export_stl_button.clicked.connect(self.export_stl_with_new_origin)
-        button_layout.addWidget(self.export_stl_button)
-
-        self.left_layout.addLayout(button_layout)
-
-    def setup_stl_properties_ui(self):
-        grid_layout = QGridLayout()
-
-        grid_layout.setVerticalSpacing(3)
-        grid_layout.setHorizontalSpacing(5)
-        grid_layout.setContentsMargins(0, 0, 0, 0)
-
-        # チェックボックスの列の最小幅を設定
-        grid_layout.setColumnMinimumWidth(0, 15)  # この行を追加
-
-        # プロパティの設定
-        properties = [
-            ("Volume (m^3):", "volume"),
-            ("Density (kg/m^3):", "density"),
-            ("Mass (kg):", "mass"),
-            ("Center of Mass:", "com"),
-            ("Inertia Tensor:", "inertia_tensor")
-        ]
-
-        # ... checkboxes and inputs setup ...
-        for i, (label_text, prop_name) in enumerate(properties):
-            if prop_name != "inertia_tensor":
-                checkbox = QCheckBox()
-                setattr(self, f"{prop_name}_checkbox", checkbox)
-                
-                label = QLabel(label_text)
-                input_field = QLineEdit("0.000000")
-                setattr(self, f"{prop_name}_input", input_field)
-                
-                grid_layout.addWidget(checkbox, i, 0)
-                grid_layout.addWidget(label, i, 1)
-                grid_layout.addWidget(input_field, i, 2)
-            else:
-                label = QLabel(label_text)
-                grid_layout.addWidget(label, i, 1)
-
-        # Inertia Tensor setup
-        self.inertia_tensor_input = QTextEdit()
-        self.inertia_tensor_input.setReadOnly(True)
-        self.inertia_tensor_input.setFixedHeight(40)
-        self.inertia_tensor_input.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.inertia_tensor_input.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.inertia_tensor_input.setWordWrapMode(QTextOption.WrapMode.WrapAnywhere)
-        grid_layout.addWidget(QLabel("Inertia Tensor:"), len(properties) - 1, 1)
-        grid_layout.addWidget(self.inertia_tensor_input, len(properties) - 1, 2)
-        
-        # フォントサイズを8ptに設定
-        font = self.inertia_tensor_input.font()
-        font.setPointSize(10)
-        self.inertia_tensor_input.setFont(font)
-
-        # デフォルト値の設定
-        self.density_input.setText("1.000000")
-
-        # Calculateボタンの前にスペーサーを追加
-        pre_calculate_spacer = QWidget()
-        pre_calculate_spacer.setFixedHeight(2)  # 2ピクセルの空間
-        grid_layout.addWidget(pre_calculate_spacer, len(properties), 0, 1, 3)
-
-        # Calculate ボタン
-        self.calculate_button = QPushButton("Calculate")
-        self.calculate_button.clicked.connect(self.calculate_and_update_properties)
-        grid_layout.addWidget(self.calculate_button, len(properties) + 1, 1, 1, 2)
-
-        # スペーサーを追加（小さな空間）
-        spacer = QWidget()
-        spacer.setFixedHeight(2)  # 8ピクセルの空間
-        grid_layout.addWidget(spacer, len(properties) + 2, 0, 1, 3)
-
-        # Axis layout
-        axis_layout = QHBoxLayout()
-        
-
-        # ラジオボタンのグループを作成
-        self.axis_group = QButtonGroup(self)
-        axis_label = QLabel("Axis:")
-        axis_layout.addWidget(axis_label)
-
-        # ラジオボタンのグループを作成
-        self.axis_group = QButtonGroup(self)
-        axis_label = QLabel("Axis:")
-        axis_layout.addWidget(axis_label)
-        
-        # ラジオボタンの作成
-        radio_texts = ["X:roll", "Y:pitch", "Z:yaw", "fixed"]  # fixedを追加
-        self.radio_buttons = []
-        for i, text in enumerate(radio_texts):
-            radio = QRadioButton(text)
-            self.axis_group.addButton(radio, i)
-            axis_layout.addWidget(radio)
-            self.radio_buttons.append(radio)
-        self.radio_buttons[0].setChecked(True)
-
-        # Rotate Testボタン
-        self.rotate_test_button = QPushButton("Rotate Test")
-        self.rotate_test_button.pressed.connect(self.start_rotation_test)
-        self.rotate_test_button.released.connect(self.stop_rotation_test)
-        axis_layout.addWidget(self.rotate_test_button)
-        
-        grid_layout.addLayout(axis_layout, len(properties) + 3, 0, 1, 3)
-
-        # 回転テスト用の変数
-        self.rotation_timer = QTimer()
-        self.rotation_timer.timeout.connect(self.update_test_rotation)
-        self.original_transform = None
-        self.test_rotation_angle = 0
-
-        # Color layout
-        color_layout = QHBoxLayout()
-        
-        color_layout.addWidget(QLabel("Color:"))
-        
-        self.color_inputs = []
-        for label in ['R:', 'G:', 'B:']:
-            color_layout.addWidget(QLabel(label))
-            color_input = QLineEdit("1.0")
-            color_input.setFixedWidth(50)
-            color_input.textChanged.connect(self.update_color_sample)
-            self.color_inputs.append(color_input)
-            color_layout.addWidget(color_input)
-        
-        self.color_sample = QLabel()
-        self.color_sample.setFixedSize(30, 20)
-        self.color_sample.setStyleSheet("background-color: rgb(255,255,255); border: 1px solid black;")
-        color_layout.addWidget(self.color_sample)
-        
-        pick_button = QPushButton("Pick")
-        pick_button.clicked.connect(self.show_color_picker)
-        color_layout.addWidget(pick_button)
-        
-        apply_button = QPushButton("Apply")
-        apply_button.clicked.connect(self.apply_color_to_stl)
-        color_layout.addWidget(apply_button)
-        
-        color_layout.addStretch()
-        
-        # カラーレイアウトを追加
-        grid_layout.addLayout(color_layout, len(properties) + 4, 0, 1, 3)
-
-        # 最後に一度だけgrid_layoutを追加
-        self.left_layout.addLayout(grid_layout)
-
-    def setup_points_ui(self):
-        points_layout = QGridLayout()
-
-        # グリッドのマージンとスペーシングの設定
-        points_layout.setContentsMargins(0, 0, 0, 0)
-        points_layout.setVerticalSpacing(3)
-        points_layout.setHorizontalSpacing(15)  # 列間のスペースを増やす
-
-        # 座標入力フィールドの最小幅を設定
-        #coordinate_input_width = 120  # インプットフィールドの最小幅（ピクセル単位）
-
-        # 各ポイントに対して入力フィールドとチェックボックスを作成
-        for i in range(self.num_points):
-            row = i
-
-            # チェックボックスはPoint番号のみ表示
-            checkbox = QCheckBox(f"Point {i+1}")
-            checkbox.setMinimumWidth(80)  # チェックボックスの最小幅を設定
-            checkbox.stateChanged.connect(lambda state, index=i: self.toggle_point(state, index))
-            self.point_checkboxes.append(checkbox)
-            points_layout.addWidget(checkbox, row, 0)
-
-            # 座標入力用のウィジェットを作成
-            inputs = []
-            
-            # 座標ラベルとテキストボックスの作成
-            for j, axis in enumerate(['X', 'Y', 'Z']):
-                # 水平レイアウトを作成して、ラベルとテキストボックスをグループ化
-                h_layout = QHBoxLayout()
-                h_layout.setSpacing(2)  # ラベルとテキストボックス間の間隔を最小に
-                h_layout.setContentsMargins(0, 0, 0, 0)  # マージンを0に
-                
-                # ラベルを作成
-                label = QLabel(f"{axis}:")
-                label.setFixedWidth(15)  # ラベルの幅を固定
-                h_layout.addWidget(label)
-                
-                # テキストボックスを作成
-                input_field = QLineEdit(str(self.point_coords[i][j]))
-                input_field.setFixedWidth(80)  # テキストボックスの幅を固定
-                h_layout.addWidget(input_field)
-                
-                # 水平レイアウトを伸縮させないようにする
-                h_layout.addStretch()
-                
-                # 水平レイアウトをコンテナウィジェットに設定
-                container = QWidget()
-                container.setLayout(h_layout)
-                
-                # グリッドレイアウトに追加
-                points_layout.addWidget(container, row, j + 1)
-                
-                inputs.append(input_field)
-                
-            self.point_inputs.append(inputs)
-
-        # グリッドレイアウトの列の伸縮比率を設定
-        points_layout.setColumnStretch(0, 1)  # Point番号の列
-        points_layout.setColumnStretch(1, 1)  # X座標の列
-        points_layout.setColumnStretch(2, 1)  # Y座標の列
-        points_layout.setColumnStretch(3, 1)  # Z座標の列
-
-        # SET/RESETボタンの行
-        button_row = self.num_points
-        # ボタン用の水平レイアウト
-        button_layout = QHBoxLayout()
-        
-        # SET ボタン
-        set_button = QPushButton("Set Point")
-        set_button.clicked.connect(self.handle_set_reset)
-        button_layout.addWidget(set_button)
-
-        # RESET ボタン
-        reset_button = QPushButton("Reset Point")
-        reset_button.clicked.connect(self.handle_set_reset)
-        button_layout.addWidget(reset_button)
-
-        # ボタンレイアウトをグリッドに追加
-        button_container = QWidget()
-        button_container.setLayout(button_layout)
-        points_layout.addWidget(button_container, button_row, 0, 1, 4)
-
-        self.left_layout.addLayout(points_layout)
-        
     def set_point(self, index):
         try:
             x = float(self.point_inputs[index][0].text())
@@ -442,28 +128,6 @@ class MainWindow(QMainWindow):
         except ValueError:
             logger.error(f"Invalid input for Point {index+1}. Please enter valid numbers for coordinates.")
 
-    def setup_vtk(self):
-        self.renderer = vtk.vtkRenderer()
-        self.renderer.SetBackground(0.05, 0.05, 0.05)
-        self.render_window = self.vtk_widget.GetRenderWindow()
-        self.render_window.AddRenderer(self.renderer)
-
-        self.render_window_interactor = self.render_window.GetInteractor()
-
-        style = CustomInteractorStyle(self)
-        self.render_window_interactor.SetInteractorStyle(style)
-
-    def setup_camera(self):
-        camera = self.renderer.GetActiveCamera()
-        camera.SetPosition(self.absolute_origin[0] + self.initial_camera_position[0],
-                           self.absolute_origin[1] + self.initial_camera_position[1],
-                           self.absolute_origin[2] + self.initial_camera_position[2])
-        camera.SetFocalPoint(*self.absolute_origin)
-        camera.SetViewUp(*self.initial_camera_view_up)
-        camera.SetParallelScale(5)
-        camera.ParallelProjectionOn()
-        self.renderer.ResetCameraClippingRange()
-
     def reset_point_to_origin(self, index):
         self.point_coords[index] = list(self.absolute_origin)
         self.update_point_display(index)
@@ -472,22 +136,10 @@ class MainWindow(QMainWindow):
         logger.info(f"Point {index+1} reset to origin {self.absolute_origin}")
 
     def reset_camera(self):
-        camera = self.renderer.GetActiveCamera()
-        camera.SetPosition(self.absolute_origin[0] + self.initial_camera_position[0],
-                           self.absolute_origin[1] + self.initial_camera_position[1],
-                           self.absolute_origin[2] + self.initial_camera_position[2])
-        camera.SetFocalPoint(*self.absolute_origin)
-        camera.SetViewUp(*self.initial_camera_view_up)
-        
-        self.camera_rotation = [0, 0, 0]
-        self.current_rotation = 0
-        
-        self.renderer.ResetCameraClippingRange()
-        self.render_window.Render()
-        self.update_all_points()
+        self.vtk_viewer.reset_camera()
 
     def update_point_position(self, index, x, y):
-        renderer = self.renderer
+        renderer = self.vtk_viewer.renderer
         camera = renderer.GetActiveCamera()
 
         # スクリーン座標からワールド座標への変換
@@ -559,12 +211,12 @@ class MainWindow(QMainWindow):
                 self.point_actors[index].VisibilityOn()
             else:
                 self.point_actors[index].VisibilityOff()
-                self.renderer.RemoveActor(self.point_actors[index])
+                self.vtk_viewer.renderer.RemoveActor(self.point_actors[index])
         
         for i, coord in enumerate(self.point_coords[index]):
             self.point_inputs[index][i].setText(f"{coord:.6f}")
         
-        self.render_window.Render()
+        self.vtk_viewer.render_window.Render()
 
     def update_all_points_size(self, obj=None, event=None):
         """ポイントのサイズを更新（可視性の厳密な管理を追加）"""
@@ -574,7 +226,7 @@ class MainWindow(QMainWindow):
                 is_checked = self.point_checkboxes[index].isChecked()
                 
                 # 一旦アクターを削除
-                self.renderer.RemoveActor(actor)
+                self.vtk_viewer.renderer.RemoveActor(actor)
                 
                 # 新しいアクターを作成
                 self.point_actors[index] = vtk.vtkAssembly()
@@ -583,12 +235,12 @@ class MainWindow(QMainWindow):
                 
                 # チェック状態に応じて可視性を設定
                 if is_checked:
-                    self.renderer.AddActor(self.point_actors[index])
+                    self.vtk_viewer.renderer.AddActor(self.point_actors[index])
                     self.point_actors[index].VisibilityOn()
                 else:
                     self.point_actors[index].VisibilityOff()
         
-        self.render_window.Render()
+        self.vtk_viewer.render_window.Render()
 
     def update_all_points(self):
         """全ポイントの表示を更新（チェック状態の確認を追加）"""
@@ -597,12 +249,12 @@ class MainWindow(QMainWindow):
                 if self.point_checkboxes[i].isChecked():
                     self.point_actors[i].SetPosition(self.point_coords[i])
                     self.point_actors[i].VisibilityOn()
-                    self.renderer.AddActor(self.point_actors[i])
+                    self.vtk_viewer.renderer.AddActor(self.point_actors[i])
                 else:
                     self.point_actors[i].VisibilityOff()
-                    self.renderer.RemoveActor(self.point_actors[i])
+                    self.vtk_viewer.renderer.RemoveActor(self.point_actors[i])
         
-        self.render_window.Render()
+        self.vtk_viewer.render_window.Render()
 
     def create_point_coordinate(self, assembly, coords):
         origin = coords
@@ -678,7 +330,7 @@ class MainWindow(QMainWindow):
 
     def calculate_sphere_radius(self):
         # ビューポートのサイズを取得
-        viewport_size = self.renderer.GetSize()
+        viewport_size = self.vtk_viewer.renderer.GetSize()
         
         # 画面の対角線の長さを計算
         diagonal = math.sqrt(viewport_size[0]**2 + viewport_size[1]**2)
@@ -687,9 +339,9 @@ class MainWindow(QMainWindow):
         radius = (diagonal * 0.1) / 2  # 半径なので2で割る
         
         # カメラのパラレルスケールでスケーリング
-        camera = self.renderer.GetActiveCamera()
+        camera = self.vtk_viewer.renderer.GetActiveCamera()
         parallel_scale = camera.GetParallelScale()
-        viewport = self.renderer.GetViewport()
+        viewport = self.vtk_viewer.renderer.GetViewport()
         aspect_ratio = (viewport[2] - viewport[0]) / (viewport[3] - viewport[1])
         
         # ビューポートのサイズに基づいて適切なスケールに変換
@@ -701,7 +353,7 @@ class MainWindow(QMainWindow):
         return scaled_radius
 
     def calculate_screen_diagonal(self):
-        viewport_size = self.renderer.GetSize()
+        viewport_size = self.vtk_viewer.renderer.GetSize()
         return math.sqrt(viewport_size[0]**2 + viewport_size[1]**2)
 
     def calculate_properties(self):
@@ -843,7 +495,7 @@ class MainWindow(QMainWindow):
 
         # 既存の重心アクターを削除
         if hasattr(self, 'com_actor') and self.com_actor:
-            self.renderer.RemoveActor(self.com_actor)
+            self.vtk_viewer.renderer.RemoveActor(self.com_actor)
 
         # 重心を可視化（赤い点）
         sphere = vtk.vtkSphereSource()
@@ -858,8 +510,8 @@ class MainWindow(QMainWindow):
         self.com_actor.GetProperty().SetColor(1, 0, 0)  # 赤色
         self.com_actor.GetProperty().SetOpacity(0.7)
 
-        self.renderer.AddActor(self.com_actor)
-        self.render_window.Render()
+        self.vtk_viewer.renderer.AddActor(self.com_actor)
+        self.vtk_viewer.render_window.Render()
 
         return center_of_mass
 
@@ -1076,37 +728,7 @@ class MainWindow(QMainWindow):
         new_up = transform.TransformVector(up)
         camera.SetViewUp(new_up)
 
-    def add_axes(self):
-        if not hasattr(self, 'axes_actors'):
-            self.axes_actors = []
 
-        # 既存の軸アクターを削除
-        for actor in self.axes_actors:
-            self.renderer.RemoveActor(actor)
-        self.axes_actors.clear()
-
-        axis_length = 5  # 固定の軸の長さ
-        colors = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]  # 赤、緑、青
-        for i, color in enumerate(colors):
-            for direction in [1, -1]:
-                line_source = vtk.vtkLineSource()
-                line_source.SetPoint1(*self.absolute_origin)
-                end_point = np.array(self.absolute_origin)
-                end_point[i] += axis_length * direction
-                line_source.SetPoint2(*end_point)
-
-                mapper = vtk.vtkPolyDataMapper()
-                mapper.SetInputConnection(line_source.GetOutputPort())
-
-                actor = vtk.vtkActor()
-                actor.SetMapper(mapper)
-                actor.GetProperty().SetColor(color)
-                actor.GetProperty().SetLineWidth(2)
-
-                self.renderer.AddActor(actor)
-                self.axes_actors.append(actor)
-
-        self.render_window.Render()
 
     def load_stl_file(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open STL File", "", "STL Files (*.stl)")
@@ -1117,16 +739,18 @@ class MainWindow(QMainWindow):
     def show_stl(self, file_path):
         #古いアクターを削除
         if hasattr(self, 'stl_actor') and self.stl_actor:
-            self.renderer.RemoveActor(self.stl_actor)
+            self.vtk_viewer.renderer.RemoveActor(self.stl_actor)
         if hasattr(self, 'com_actor') and self.com_actor:
-            self.renderer.RemoveActor(self.com_actor)
+            self.vtk_viewer.renderer.RemoveActor(self.com_actor)
             self.com_actor = None
 
         # レンダラーをクリア
-        self.renderer.Clear()
+        # self.vtk_viewer.renderer.Clear() # Clear() clears the image buffer, not props.
         
         # 座標軸の再追加
-        self.axes_widget = self.add_axes_widget()
+        if hasattr(self, 'axes_widget') and self.axes_widget:
+            self.axes_widget.EnabledOff()
+        self.axes_widget = self.vtk_viewer.add_axes_widget()
 
         self.stl_file_path = file_path
 
@@ -1140,7 +764,7 @@ class MainWindow(QMainWindow):
         self.stl_actor.SetMapper(mapper)
 
         self.model_bounds = reader.GetOutput().GetBounds()
-        self.renderer.AddActor(self.stl_actor)
+        self.vtk_viewer.renderer.AddActor(self.stl_actor)
         
         # STLの体積を取得
         mass_properties = vtk.vtkMassProperties()
@@ -1185,7 +809,7 @@ class MainWindow(QMainWindow):
         self.file_name_value.setText(file_path)
         
         # レンダリングを強制的に更新
-        self.render_window.Render()
+        self.vtk_viewer.render_window.Render()
         
     def show_absolute_origin(self):
         # 大原点を表す球を作成
@@ -1201,8 +825,8 @@ class MainWindow(QMainWindow):
         actor.SetMapper(mapper)
         actor.GetProperty().SetColor(1, 1, 0)  # 黄色
 
-        self.renderer.AddActor(actor)
-        self.render_window.Render()
+        self.vtk_viewer.renderer.AddActor(actor)
+        self.vtk_viewer.render_window.Render()
 
     def show_point(self, index):
         """ポイントを表示（XMLロード時にも使用）"""
@@ -1212,7 +836,7 @@ class MainWindow(QMainWindow):
         if self.point_actors[index] is None:
             self.point_actors[index] = vtk.vtkAssembly()
             self.create_point_coordinate(self.point_actors[index], [0, 0, 0])
-            self.renderer.AddActor(self.point_actors[index])
+            self.vtk_viewer.renderer.AddActor(self.point_actors[index])
         
         self.point_actors[index].SetPosition(self.point_coords[index])
         self.point_actors[index].VisibilityOn()
@@ -1234,7 +858,7 @@ class MainWindow(QMainWindow):
             self.current_rotation = self.target_rotation
             return
 
-        camera = self.renderer.GetActiveCamera()
+        camera = self.vtk_viewer.renderer.GetActiveCamera()
 
         position = list(camera.GetPosition())
         focal_point = self.absolute_origin
@@ -1265,7 +889,7 @@ class MainWindow(QMainWindow):
         camera.SetPosition(new_position)
         camera.SetViewUp(new_up)
 
-        self.render_window.Render()
+        self.vtk_viewer.render_window.Render()
 
     def toggle_point(self, state, index):
         """ポイントの表示/非表示を切り替え"""
@@ -1273,16 +897,16 @@ class MainWindow(QMainWindow):
             if self.point_actors[index] is None:
                 self.point_actors[index] = vtk.vtkAssembly()
                 self.create_point_coordinate(self.point_actors[index], [0, 0, 0])
-                self.renderer.AddActor(self.point_actors[index])
+                self.vtk_viewer.renderer.AddActor(self.point_actors[index])
             self.point_actors[index].SetPosition(self.point_coords[index])
             self.point_actors[index].VisibilityOn()
-            self.renderer.AddActor(self.point_actors[index])
+            self.vtk_viewer.renderer.AddActor(self.point_actors[index])
         else:
             if self.point_actors[index]:
                 self.point_actors[index].VisibilityOff()
-                self.renderer.RemoveActor(self.point_actors[index])
+                self.vtk_viewer.renderer.RemoveActor(self.point_actors[index])
         
-        self.render_window.Render()
+        self.vtk_viewer.render_window.Render()
 
     def get_axis_length(self):
         if self.model_bounds:
@@ -1298,7 +922,7 @@ class MainWindow(QMainWindow):
     def hide_point(self, index):
         if self.point_actors[index]:
             self.point_actors[index].VisibilityOff()
-        self.render_window.Render()
+        self.vtk_viewer.render_window.Render()
 
     def set_point(self, index):
         try:
@@ -1347,7 +971,7 @@ class MainWindow(QMainWindow):
         if not self.model_bounds:
             return
 
-        camera = self.renderer.GetActiveCamera()
+        camera = self.vtk_viewer.renderer.GetActiveCamera()
         
         # モデルの中心を計算
         center = [(self.model_bounds[i] + self.model_bounds[i+1]) / 2 for i in range(0, 6, 2)]
@@ -1378,7 +1002,7 @@ class MainWindow(QMainWindow):
         camera.SetFocalPoint(*center)  # モデルの中心を見る
 
         # ビューポートのアスペクト比を取得
-        viewport = self.renderer.GetViewport()
+        viewport = self.vtk_viewer.renderer.GetViewport()
         aspect_ratio = (viewport[2] - viewport[0]) / (viewport[3] - viewport[1])
 
         # モデルが画面にフィットするようにパラレルスケールを設定
@@ -1387,8 +1011,8 @@ class MainWindow(QMainWindow):
         else:  # 縦長の画面
             camera.SetParallelScale(size / (2 * aspect_ratio))
 
-        self.renderer.ResetCameraClippingRange()
-        self.render_window.Render()
+        self.vtk_viewer.renderer.ResetCameraClippingRange()
+        self.vtk_viewer.render_window.Render()
 
     def handle_close(self, event):
         print("Window is closing...")
@@ -1397,7 +1021,7 @@ class MainWindow(QMainWindow):
         event.accept()
 
     def get_screen_axes(self):
-        camera = self.renderer.GetActiveCamera()
+        camera = self.vtk_viewer.renderer.GetActiveCamera()
         view_up = np.array(camera.GetViewUp())
         forward = np.array(camera.GetDirectionOfProjection())
         
@@ -1443,7 +1067,7 @@ class MainWindow(QMainWindow):
             translation.Translate(-origin_point[0], -origin_point[1], -origin_point[2])
 
             # Step 2: カメラの向きに基づいて座標系を変更
-            camera = self.renderer.GetActiveCamera()
+            camera = self.vtk_viewer.renderer.GetActiveCamera()
             camera_direction = np.array(camera.GetDirectionOfProjection())
             camera_up = np.array(camera.GetViewUp())
             camera_right = np.cross(camera_direction, camera_up)
@@ -1563,7 +1187,7 @@ class MainWindow(QMainWindow):
         if not is_set:
             self.update_all_points_size()
 
-        self.render_window.Render()
+        self.vtk_viewer.render_window.Render()
 
     def get_mirrored_filename(self, original_path):
         dir_path = os.path.dirname(original_path)
@@ -1931,7 +1555,7 @@ class MainWindow(QMainWindow):
                         self.create_point_coordinate(self.point_actors[i], [0, 0, 0])
 
                     self.point_actors[i].SetPosition(self.point_coords[i])
-                    self.renderer.AddActor(self.point_actors[i])
+                    self.vtk_viewer.renderer.AddActor(self.point_actors[i])
                     self.point_actors[i].VisibilityOn()
 
                     print(f"Successfully loaded and visualized point {i+1}")
@@ -1964,7 +1588,7 @@ class MainWindow(QMainWindow):
                     
                     if self.stl_actor:
                         self.stl_actor.GetProperty().SetColor(r, g, b)
-                        self.render_window.Render()
+                        self.vtk_viewer.render_window.Render()
                     
                     print(f"Material color loaded and applied: R={r:.3f}, G={g:.3f}, B={b:.3f}")
                 except (ValueError, IndexError) as e:
@@ -1973,14 +1597,13 @@ class MainWindow(QMainWindow):
 
     def _refresh_display(self):
         """表示を更新する"""
-        self.renderer.ResetCamera()
+        self.vtk_viewer.renderer.ResetCamera()
         self.fit_camera_to_model()
         self.update_all_points_size()
         self.update_all_points()
         self.calculate_center_of_mass()
-        self.add_axes()
-        self.renderer.ResetCameraClippingRange()
-        self.render_window.Render()
+        self.vtk_viewer.renderer.ResetCameraClippingRange()
+        self.vtk_viewer.render_window.Render()
 
     def load_parameters_from_xml(self, root):
         """XMLからパラメータを読み込んで設定する共通処理"""
@@ -1996,7 +1619,7 @@ class MainWindow(QMainWindow):
                 # 既存のアクターを削除
                 if self.point_actors[i]:
                     self.point_actors[i].VisibilityOff()
-                    self.renderer.RemoveActor(self.point_actors[i])
+                    self.vtk_viewer.renderer.RemoveActor(self.point_actors[i])
                     self.point_actors[i] = None
 
             has_parameters = False
@@ -2021,7 +1644,7 @@ class MainWindow(QMainWindow):
                             # STLモデルに色を適用
                             if hasattr(self, 'stl_actor') and self.stl_actor:
                                 self.stl_actor.GetProperty().SetColor(r, g, b)
-                                self.render_window.Render()
+                                self.vtk_viewer.render_window.Render()
                             
                             has_parameters = True
                             print(f"Loaded color: R={r:.3f}, G={g:.3f}, B={b:.3f}")
@@ -2133,7 +1756,7 @@ class MainWindow(QMainWindow):
                             self.point_actors[i] = vtk.vtkAssembly()
                             self.create_point_coordinate(self.point_actors[i], [0, 0, 0])
                         self.point_actors[i].SetPosition(self.point_coords[i])
-                        self.renderer.AddActor(self.point_actors[i])
+                        self.vtk_viewer.renderer.AddActor(self.point_actors[i])
                         self.point_actors[i].VisibilityOn()
                         
                         print(f"Loaded point {i+1}: ({x:.6f}, {y:.6f}, {z:.6f})")
@@ -2188,7 +1811,7 @@ class MainWindow(QMainWindow):
                 # 3Dビューのポイントを非表示にし、アクターを削除
                 if self.point_actors[i]:
                     self.point_actors[i].VisibilityOff()
-                    self.renderer.RemoveActor(self.point_actors[i])
+                    self.vtk_viewer.renderer.RemoveActor(self.point_actors[i])
                     self.point_actors[i] = None
             
             print("All points have been reset")
@@ -2225,7 +1848,7 @@ class MainWindow(QMainWindow):
                             self.create_point_coordinate(self.point_actors[i], [0, 0, 0])
                         
                         self.point_actors[i].SetPosition(self.point_coords[i])
-                        self.renderer.AddActor(self.point_actors[i])
+                        self.vtk_viewer.renderer.AddActor(self.point_actors[i])
                         self.point_actors[i].VisibilityOn()
                         
                         points_with_data.add(i)
@@ -2252,7 +1875,7 @@ class MainWindow(QMainWindow):
                             
                             # STLモデルに色を適用
                             self.stl_actor.GetProperty().SetColor(r, g, b)
-                            self.render_window.Render()
+                            self.vtk_viewer.render_window.Render()
                             
                             print(f"Material color loaded and applied: R={r:.3f}, G={g:.3f}, B={b:.3f}")
                         except (ValueError, IndexError) as e:
@@ -2276,16 +1899,16 @@ class MainWindow(QMainWindow):
                         print(f"Warning: Invalid axis format in XML: {xyz_str}")
 
             # 表示の更新
-            if hasattr(self, 'renderer'):
-                self.renderer.ResetCamera()
+            if hasattr(self.vtk_viewer, 'renderer'):
+                self.vtk_viewer.renderer.ResetCamera()
                 self.update_all_points()
                 
                 # STLモデルが存在する場合、カメラをフィット
                 if hasattr(self, 'stl_actor') and self.stl_actor:
                     self.fit_camera_to_model()
                     
-                self.renderer.ResetCameraClippingRange()
-                self.render_window.Render()
+                self.vtk_viewer.renderer.ResetCameraClippingRange()
+                self.vtk_viewer.render_window.Render()
 
             print(f"XML file has been loaded: {xml_path}")
             print(f"Number of set points: {len(points_with_data)}")
@@ -2296,14 +1919,14 @@ class MainWindow(QMainWindow):
 
     def refresh_view(self):
         """ビューの更新とカメラのフィッティングを行う"""
-        if hasattr(self, 'renderer'):
-            self.renderer.ResetCamera()
+        if hasattr(self.vtk_viewer, 'renderer'):
+            self.vtk_viewer.renderer.ResetCamera()
             self.update_all_points()
             # STLモデルが存在する場合、カメラをフィット
             if hasattr(self, 'stl_actor') and self.stl_actor:
                 self.fit_camera_to_model()
-            self.renderer.ResetCameraClippingRange()
-            self.render_window.Render()
+            self.vtk_viewer.renderer.ResetCameraClippingRange()
+            self.vtk_viewer.render_window.Render()
 
     def load_stl_with_xml(self):
         """STLファイルとXMLファイルを一緒に読み込む"""
@@ -2593,7 +2216,7 @@ class MainWindow(QMainWindow):
         # 元の位置に戻す
         if self.stl_actor and self.original_transform:
             self.stl_actor.SetUserTransform(self.original_transform)
-            self.render_window.Render()
+            self.vtk_viewer.render_window.Render()
 
     def update_test_rotation(self):
         if not self.stl_actor:
@@ -2620,7 +2243,7 @@ class MainWindow(QMainWindow):
         
         # 変換を適用
         self.stl_actor.SetUserTransform(transform)
-        self.render_window.Render()
+        self.vtk_viewer.render_window.Render()
 
     def update_color_sample(self):
         """カラーサンプルの表示を更新"""
@@ -2636,7 +2259,7 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'stl_actor') and self.stl_actor:
                 rgb_normalized = [v / 255.0 for v in rgb_values]
                 self.stl_actor.GetProperty().SetColor(*rgb_normalized)
-                self.render_window.Render()
+                self.vtk_viewer.render_window.Render()
 
         except ValueError:
             pass
@@ -2684,7 +2307,7 @@ class MainWindow(QMainWindow):
             
             # STLモデルの色を変更
             self.stl_actor.GetProperty().SetColor(*rgb_values)
-            self.render_window.Render()
+            self.vtk_viewer.render_window.Render()
             print(f"Applied color: RGB({rgb_values[0]:.3f}, {rgb_values[1]:.3f}, {rgb_values[2]:.3f})")
             
         except ValueError as e:
@@ -2692,63 +2315,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"Error applying color: {str(e)}")
 
-    def add_axes_widget(self):
-        """座標軸を表示するウィジェットを追加"""
-        axes = vtk.vtkAxesActor()
-        axes.SetTotalLength(0.3, 0.3, 0.3)  # 軸の長さを設定
-        axes.SetShaftTypeToLine()
-        axes.SetNormalizedShaftLength(1, 1, 1)
-        axes.SetNormalizedTipLength(0.1, 0.1, 0.1)
-        
-        # 座標軸のラベルを設定
-        axes.GetXAxisCaptionActor2D().GetTextActor().SetTextScaleModeToNone()
-        axes.GetYAxisCaptionActor2D().GetTextActor().SetTextScaleModeToNone()
-        axes.GetZAxisCaptionActor2D().GetTextActor().SetTextScaleModeToNone()
-        
-        widget = vtk.vtkOrientationMarkerWidget()
-        widget.SetOrientationMarker(axes)
-        widget.SetInteractor(self.render_window_interactor)
-        widget.SetViewport(0.7, 0.7, 1.0, 1.0)  # 右上に表示
-        widget.EnabledOn()
-        widget.InteractiveOff()  # インタラクティブな操作を無効化
-        
-        return widget
 
-    def add_instruction_text(self):
-        """画面上に操作説明を表示"""
-        # 左上のテキスト
-        text_actor_top = vtk.vtkTextActor()
-        text_actor_top.SetInput(
-            "[W/S]: Up/Down Rotate\n"
-            "[A/D]: Left/Right Rotate\n"
-            "[Q/E]: Roll\n"
-            "[R]: Reset Camera\n"
-            "[T]: Wireframe\n\n"
-            "[Drag]: Rotate\n"
-            "[Shift + Drag]: Move View\n"
-        )
-        text_actor_top.GetTextProperty().SetFontSize(14)
-        text_actor_top.GetTextProperty().SetColor(0.3, 0.8, 1.0)  # 水色
-        text_actor_top.GetPositionCoordinate().SetCoordinateSystemToNormalizedViewport()
-        text_actor_top.SetPosition(0.03, 0.97)  # 左上に配置
-        text_actor_top.GetTextProperty().SetJustificationToLeft()
-        text_actor_top.GetTextProperty().SetVerticalJustificationToTop()
-        self.renderer.AddActor(text_actor_top)
-
-        # 左下のテキスト
-        text_actor_bottom = vtk.vtkTextActor()
-        text_actor_bottom.SetInput(
-            "[Arrows] : Move Point 10mm\n"
-            " +[Shift]: Move Point 1mm\n"
-            "  +[Ctrl]: Move Point 0.1mm\n\n"
-        )
-        text_actor_bottom.GetTextProperty().SetFontSize(14)
-        text_actor_bottom.GetTextProperty().SetColor(0.3, 0.8, 1.0)  # 水色
-        text_actor_bottom.GetPositionCoordinate().SetCoordinateSystemToNormalizedViewport()
-        text_actor_bottom.SetPosition(0.03, 0.03)  # 左下に配置
-        text_actor_bottom.GetTextProperty().SetJustificationToLeft()
-        text_actor_bottom.GetTextProperty().SetVerticalJustificationToBottom()
-        self.renderer.AddActor(text_actor_bottom)
 
     def process_mirror_properties(self, xml_data, reverse_output, density=1.0):
         """

@@ -1,0 +1,20 @@
+2025-12-16 19:52:18,802 - Assembler - INFO - Registered node type: BaseLinkNode
+2025-12-16 19:52:18,802 - Assembler - INFO - Registered node type: LinkNode
+2025-12-16 19:52:18,813 - Assembler - INFO - Base Link node created successfully
+2025-12-16 19:52:31,855 - Assembler - INFO - Starting cleanup process...
+2025-12-16 19:52:31,856 - Assembler - INFO - Cleanup process completed
+2025-12-16 19:52:31,880 - Assembler - INFO - Starting cleanup process...
+2025-12-16 19:52:31,880 - Assembler - INFO - Cleanup process completed
+2025-12-16 19:52:31,912 - Assembler - INFO - Starting cleanup process...
+2025-12-16 19:52:31,920 - Assembler - WARNING - Warning: Rubber band cleanup - Internal C++ object (PySide6.QtWidgets.QRubberBand) already deleted.
+2025-12-16 19:52:31,920 - Assembler - INFO - Cleanup process completed
+2025-12-16 20:23:56,298 - Assembler - INFO - Registered node type: BaseLinkNode
+2025-12-16 20:23:56,300 - Assembler - INFO - Registered node type: LinkNode
+2025-12-16 20:23:56,304 - Assembler - INFO - Base Link node created successfully
+2025-12-16 20:23:59,684 - Assembler - INFO - Starting cleanup process...
+2025-12-16 20:23:59,685 - Assembler - INFO - Cleanup process completed
+2025-12-16 20:23:59,711 - Assembler - INFO - Starting cleanup process...
+2025-12-16 20:23:59,711 - Assembler - INFO - Cleanup process completed
+2025-12-16 20:23:59,742 - Assembler - INFO - Starting cleanup process...
+2025-12-16 20:23:59,744 - Assembler - WARNING - Warning: Rubber band cleanup - Internal C++ object (PySide6.QtWidgets.QRubberBand) already deleted.
+2025-12-16 20:23:59,744 - Assembler - INFO - Cleanup process completed
